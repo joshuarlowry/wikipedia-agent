@@ -5,11 +5,17 @@ set -e
 
 # Check if query provided
 if [ $# -eq 0 ]; then
-    echo "Usage: ./query.sh \"your question here\""
+    echo "Usage: ./query.sh [OPTIONS] \"your question here\""
+    echo ""
+    echo "Options:"
+    echo "  --json        Output structured JSON instead of MLA-formatted text"
+    echo "  --no-stream   Disable streaming output"
+    echo "  --config PATH Use custom config file"
     echo ""
     echo "Examples:"
     echo "  ./query.sh \"What is photosynthesis?\""
-    echo "  ./query.sh \"Explain quantum computing\""
+    echo "  ./query.sh --json \"Explain quantum computing\""
+    echo "  ./query.sh --no-stream \"Tell me about black holes\""
     exit 1
 fi
 
