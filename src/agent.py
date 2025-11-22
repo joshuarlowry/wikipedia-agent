@@ -203,9 +203,18 @@ Instructions:
             # Execute the query
             result = streaming_agent(prompt)
 
-            # Yield accumulated text
-            for chunk in accumulated_text:
-                yield chunk
+            # Yield accumulated text if we got any
+            if accumulated_text:
+                for chunk in accumulated_text:
+                    yield chunk
+            else:
+                # Fallback: if streaming didn't capture chunks, use the result directly
+                if hasattr(result, 'output'):
+                    yield result.output
+                elif hasattr(result, 'content'):
+                    yield result.content
+                else:
+                    yield str(result)
             
             self._emit_status("✅ Research complete!")
 
