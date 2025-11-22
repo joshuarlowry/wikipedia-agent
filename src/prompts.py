@@ -21,8 +21,10 @@ class PromptManager:
             with open(system_file, "r") as f:
                 self._templates = yaml.safe_load(f) or {}
 
-    def get_system_prompt(self) -> str:
-        """Get the system prompt."""
+    def get_system_prompt(self, mode: str = "mla") -> str:
+        """Get the system prompt for the specified mode."""
+        if mode == "json":
+            return self._templates.get("system_prompt_json", "")
         return self._templates.get("system_prompt", "")
 
     def get_user_template(self) -> str:
