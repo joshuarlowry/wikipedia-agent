@@ -1,12 +1,15 @@
 # Wikipedia Research Agent
 
-A Wikipedia research agent with an interactive Terminal UI that searches for relevant articles, synthesizes information using LLMs, and provides responses with proper MLA citations.
+A Wikipedia research agent powered by the **[Strands Agents framework](https://strandsagents.com/)** with an interactive Terminal UI that searches for relevant articles, synthesizes information using LLMs, and provides responses with proper MLA citations.
+
+> **Note**: This project has been migrated to use the Strands Agents SDK for improved orchestration, multi-provider support, and better observability. See [MIGRATION_TO_STRANDS.md](MIGRATION_TO_STRANDS.md) for details.
 
 ## Features
 
+- **Strands-Powered**: Built on the [Strands Agents SDK](https://strandsagents.com/) for robust agent orchestration
 - **Interactive TUI**: Beautiful terminal interface with real-time updates
-- **Wikipedia Integration**: Automatically searches and retrieves relevant Wikipedia articles
-- **Multiple LLM Backends**: Support for Ollama (local) and OpenRouter (cloud)
+- **Wikipedia Tools**: Strands tools for searching, retrieving, and citing Wikipedia articles
+- **Multiple LLM Backends**: Support for Ollama (local), OpenRouter (cloud), and more via Strands
 - **MLA Citations**: Automatically generates properly formatted MLA 9th edition citations
 - **Configurable**: YAML-based configuration with environment variable support
 - **Streaming Support**: Real-time streaming responses from LLMs

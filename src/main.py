@@ -19,7 +19,7 @@ console = Console()
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Wikipedia Research Agent with LLM integration"
+        description="Wikipedia Research Agent with LLM integration (Strands-powered)"
     )
     parser.add_argument("query", type=str, help="Your research question")
     parser.add_argument(
@@ -59,44 +59,28 @@ def main():
     console.print(Panel(f"[bold cyan]Question:[/bold cyan] {args.query}", expand=False))
     console.print()
 
-    # Search Wikipedia
-    with console.status("[bold green]Searching Wikipedia...", spinner="dots"):
-        try:
-            articles = agent.search_wikipedia(args.query)
-        except Exception as e:
-            console.print(f"[red]Error searching Wikipedia: {e}[/red]")
-            sys.exit(1)
-
-    if not articles:
-        console.print("[yellow]No Wikipedia articles found for your query.[/yellow]")
-        sys.exit(0)
-
-    # Display found articles
-    console.print("[bold green]Found articles:[/bold green]")
-    for article in articles:
-        console.print(f"  • {article.title} ({article.word_count} words)")
-    console.print()
-
-    # Generate response
-    console.print("[bold green]Generating response...[/bold green]")
+    # Generate response using Strands agent
+    console.print("[bold green]Researching and generating response...[/bold green]")
     console.print()
 
     try:
         if args.no_stream:
             # Non-streaming
-            with console.status("[bold green]Generating...", spinner="dots"):
-                response = agent.generate_response(args.query, articles)
+            with console.status("[bold green]Processing...", spinner="dots"):
+                response = agent.query(args.query, stream=False)
             console.print(Markdown(response))
         else:
             # Streaming
             response_text = ""
-            for chunk in agent.stream_response(args.query, articles):
+            for chunk in agent.query(args.query, stream=True):
                 response_text += chunk
                 console.print(chunk, end="", highlight=False)
             console.print()
 
     except Exception as e:
         console.print(f"\n[red]Error generating response: {e}[/red]")
+        import traceback
+        console.print(f"[red]{traceback.format_exc()}[/red]")
         sys.exit(1)
 
     console.print()

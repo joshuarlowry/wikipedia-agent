@@ -12,12 +12,12 @@ class TestWikipediaAgent:
 
     @patch("src.agent.Config")
     def test_init_ollama(self, mock_config_class):
-        """Test agent initialization with Ollama provider."""
+        """Test agent initialization with Ollama provider (Strands)."""
         mock_config = Mock()
         mock_config.llm_provider = "ollama"
         mock_config.wikipedia_config = {"language": "en"}
         mock_config.ollama_config = {
-            "model": "llama3.2",
+            "model": "mistral:latest",
             "base_url": "http://localhost:11434",
             "temperature": 0.7,
         }
@@ -25,11 +25,12 @@ class TestWikipediaAgent:
 
         agent = WikipediaAgent(mock_config)
         assert agent.config == mock_config
-        assert agent.llm is not None
+        assert agent.model is not None  # Strands model
+        assert agent.agent is not None  # Strands Agent
 
     @patch("src.agent.Config")
     def test_init_openrouter(self, mock_config_class):
-        """Test agent initialization with OpenRouter provider."""
+        """Test agent initialization with OpenRouter provider (Strands)."""
         mock_config = Mock()
         mock_config.llm_provider = "openrouter"
         mock_config.wikipedia_config = {"language": "en"}
@@ -43,7 +44,8 @@ class TestWikipediaAgent:
 
         agent = WikipediaAgent(mock_config)
         assert agent.config == mock_config
-        assert agent.llm is not None
+        assert agent.model is not None  # Strands model
+        assert agent.agent is not None  # Strands Agent
 
     @patch("src.agent.Config")
     def test_init_invalid_provider(self, mock_config_class):
@@ -56,120 +58,38 @@ class TestWikipediaAgent:
         with pytest.raises(ValueError, match="Unknown LLM provider"):
             WikipediaAgent(mock_config)
 
-    @patch("src.agent.WikipediaSearch")
-    @patch("src.agent.Config")
-    def test_search_wikipedia(self, mock_config_class, mock_wiki_search):
-        """Test Wikipedia search."""
-        mock_config = Mock()
-        mock_config.llm_provider = "ollama"
-        mock_config.wikipedia_config = {
-            "language": "en",
-            "max_articles": 3,
-            "max_chars_per_article": 3000,
-        }
-        mock_config.ollama_config = {"model": "llama3.2"}
+    @pytest.mark.skip(reason="Method removed in Strands implementation - search handled by tools")
+    def test_search_wikipedia(self):
+        """Test Wikipedia search - deprecated in Strands implementation."""
+        pass
 
-        mock_article = WikipediaArticle(
-            title="Test Article",
-            url="https://test.com",
-            summary="Summary",
-            content="Content",
-        )
+    @pytest.mark.skip(reason="Method removed in Strands implementation - formatting handled by tools")
+    def test_format_sources(self):
+        """Test source formatting - deprecated in Strands implementation."""
+        pass
 
-        mock_search_instance = Mock()
-        mock_search_instance.search_and_retrieve.return_value = [mock_article]
-        mock_wiki_search.return_value = mock_search_instance
+    @pytest.mark.skip(reason="Method removed in Strands implementation - response generation handled by Strands Agent")
+    def test_generate_response(self):
+        """Test response generation - deprecated in Strands implementation."""
+        pass
 
-        agent = WikipediaAgent(mock_config)
-        articles = agent.search_wikipedia("test query")
-
-        assert len(articles) == 1
-        assert articles[0].title == "Test Article"
-
-    @patch("src.agent.Config")
-    def test_format_sources(self, mock_config_class):
-        """Test source formatting."""
-        mock_config = Mock()
-        mock_config.llm_provider = "ollama"
-        mock_config.wikipedia_config = {"language": "en"}
-        mock_config.ollama_config = {"model": "llama3.2"}
-
-        articles = [
-            WikipediaArticle(
-                title="Article 1",
-                url="https://test1.com",
-                summary="Summary 1",
-                content="Content 1",
-            ),
-            WikipediaArticle(
-                title="Article 2",
-                url="https://test2.com",
-                summary="Summary 2",
-                content="Content 2",
-            ),
-        ]
-
-        agent = WikipediaAgent(mock_config)
-        formatted = agent._format_sources(articles)
-
-        assert "Source 1: Article 1" in formatted
-        assert "Source 2: Article 2" in formatted
-        assert "https://test1.com" in formatted
-        assert "Content 1" in formatted
-
-    @patch("src.agent.Config")
-    def test_generate_response(self, mock_config_class):
-        """Test response generation."""
-        mock_config = Mock()
-        mock_config.llm_provider = "ollama"
-        mock_config.wikipedia_config = {"language": "en"}
-        mock_config.ollama_config = {"model": "llama3.2"}
-
-        articles = [
-            WikipediaArticle(
-                title="Test",
-                url="https://test.com",
-                summary="Summary",
-                content="Content",
-            )
-        ]
-
-        agent = WikipediaAgent(mock_config)
-
-        # Mock the LLM
-        mock_response = Mock()
-        mock_response.content = "Generated response with Works Cited section"
-        agent.llm.generate = Mock(return_value=mock_response)
-
-        response = agent.generate_response("What is test?", articles)
-        assert response == "Generated response with Works Cited section"
-        agent.llm.generate.assert_called_once()
-
-    @patch("src.agent.Config")
-    def test_query_no_articles(self, mock_config_class):
-        """Test query when no articles are found."""
-        mock_config = Mock()
-        mock_config.llm_provider = "ollama"
-        mock_config.wikipedia_config = {"language": "en"}
-        mock_config.ollama_config = {"model": "llama3.2"}
-
-        agent = WikipediaAgent(mock_config)
-        agent.search_wikipedia = Mock(return_value=[])
-
-        response = agent.query("nonexistent query", stream=False)
-        assert "No Wikipedia articles found" in response
+    @pytest.mark.skip(reason="Query behavior changed in Strands implementation - tools handle article search")
+    def test_query_no_articles(self):
+        """Test query when no articles are found - behavior handled by Strands tools now."""
+        pass
 
     @patch("src.agent.Config")
     def test_is_ready(self, mock_config_class):
-        """Test readiness check."""
+        """Test readiness check (Strands implementation)."""
         mock_config = Mock()
         mock_config.llm_provider = "ollama"
         mock_config.wikipedia_config = {"language": "en"}
-        mock_config.ollama_config = {"model": "llama3.2"}
+        mock_config.ollama_config = {
+            "model": "mistral:latest",
+            "base_url": "http://localhost:11434"
+        }
 
         agent = WikipediaAgent(mock_config)
 
-        # Mock the is_available property
-        type(agent.llm).is_available = PropertyMock(return_value=True)
-
+        # In Strands implementation, is_ready checks if model exists
         assert agent.is_ready is True

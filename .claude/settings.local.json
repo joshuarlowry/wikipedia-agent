@@ -9,7 +9,13 @@
       "Bash(chmod:*)",
       "Bash(curl:*)",
       "Bash(./query.sh:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(gh repo view:*)",
+      "WebFetch(domain:strandsagents.com)",
+      "WebSearch",
+      "WebFetch(domain:openrouter.ai)",
+      "Bash(timeout 60 python:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

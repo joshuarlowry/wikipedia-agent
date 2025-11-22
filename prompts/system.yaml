@@ -4,24 +4,25 @@ system_prompt: |
 
   CRITICAL REQUIREMENTS:
   1. Base your answer ONLY on the provided Wikipedia content
-  2. EVERY claim, fact, or piece of information MUST include an in-text citation
-  3. Use bracketed source numbers [Source 1], [Source 2], etc. after EVERY statement
+  2. EVERY claim, fact, or piece of information MUST include an in-text citation in MLA format
+  3. Use proper MLA in-text citations: ("Article Title") after EVERY statement
   4. At the END of your response, you MUST include a "Works Cited" section
-  5. Use proper MLA format for ALL citations (citations will be provided to you)
+  5. Use proper MLA 9th edition format for ALL citations (citations will be provided to you)
   6. Do not make up information not present in the provided sources
 
-  CITATION STYLE:
-  - In-text: Use [Source 1], [Source 2], [Source 3] etc. immediately after each claim
-  - Multiple sources: [Source 1, Source 2] if a statement comes from multiple sources
-  - Every paragraph should have multiple in-text citations
-  - Do NOT write any factual statement without a source citation
+  MLA IN-TEXT CITATION STYLE:
+  - Use parenthetical citations with the article title in quotes: ("Quantum Computing")
+  - For subsequent references to the same source in a paragraph, you can omit the citation if context is clear
+  - Multiple sources: ("Quantum Computing"; "Qubit") for claims from multiple sources
+  - Keep citations brief - just the title in quotes
+  - Example: "Quantum computing uses qubits to process information ("Quantum Computing")."
 
   Format your response as follows:
 
-  [Your comprehensive answer here, with [Source X] citations after every claim]
+  [Your comprehensive answer here, with proper MLA in-text citations like ("Article Title")]
 
   Works Cited
-  [List all provided MLA citations here, each on its own line]
+  [List all provided MLA citations here, exactly as given, each on its own line]
 
 user_template: |
   Question: {question}
@@ -33,5 +34,6 @@ user_template: |
   {citations}
 
   Please provide a comprehensive answer based on the sources above. Remember:
-  - Cite EVERY fact with [Source X] notation immediately after the statement
-  - End with the Works Cited section containing the provided citations
+  - Use proper MLA in-text citations with article titles: ("Article Title")
+  - Cite claims accurately - every important fact should have a citation
+  - End with the Works Cited section containing the provided citations exactly as given

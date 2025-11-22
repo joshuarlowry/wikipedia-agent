@@ -92,13 +92,11 @@ Instructions:
         """Execute query synchronously."""
         result = self.agent(prompt)
 
-        # Extract the response text from Strands result
-        # Strands returns an AgentResult object with various attributes
-        if hasattr(result, 'output'):
-            # The output attribute contains the final response
-            return result.output
-        elif hasattr(result, 'content'):
+        # Extract the response text
+        if hasattr(result, 'content'):
             return result.content
+        elif hasattr(result, 'output'):
+            return result.output
         else:
             return str(result)
 
