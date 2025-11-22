@@ -301,4 +301,3 @@ Works Cited
 
 ## License
 
-MIT
