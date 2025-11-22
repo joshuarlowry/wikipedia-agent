@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv:*)",
+      "Bash(source:*)",
+      "Bash(pytest:*)",
+      "Bash(tree:*)",
+      "Bash(python:*)",
+      "Bash(chmod:*)",
+      "Bash(curl:*)",
+      "Bash(./query.sh:*)",
+      "Bash(gh auth:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,49 @@
+Wikipedia Research Agent - CLI
+===============================
+
+╭──────────────────────────────────────────────╮
+│ Question: what is the tallest rollercoaster? │
+╰──────────────────────────────────────────────╯
+
+Found articles:
+  • Falcons Flight (941 words)
+  • Hyperia (roller coaster) (1207 words)
+  • Thorpe Park (4015 words)
+
+Generating response...
+
+This document examines the development of two major theme parks: one focusing on ambitious roller coasters like Q&A's Falcon Flight, and another featuring immersive experiences like Thorpe Park, which offers unique attractions like  "Ghost Train", "Tidal Wave", and the iconic Colossus.
+
+**Q&A's Falcon Flight: Ambition Meets Engineering**
+
+The development of Q&A's Falcon Flight was marked by ambitious goals. It aimed to become the United Kingdom's tallest and fastest rollercoaster, challenging the status quo in the theme park industry. The project involved a collaboration with renowned engineering firms for its design and construction.  It incorporated innovative technologies and materials, showcasing the commitment to pushing boundaries in roller coaster development. 
+
+**Thorpe Park: Legacy of Innovation** 
+
+The story of Thorpe Park reveals a fascinating journey from humble beginnings as a gravel pit to a thriving theme park destination. The history is marked by key milestones including the opening of Space Station Zero, an early roller coaster that paved the way for future innovations. 
+Here's a breakdown of some notable points:
+
+* **From Gravel Pit to Theme Park:** Thorpe Park began with a transformation from a gravel pit into a leisure attraction in the 1970s.  A unique feature was the flooded grounds that added an intriguing element to the park, creating an island-like atmosphere.
+* **Immersive Experiences:** The theme park expanded its offering beyond just rides with historical exhibits and immersive activities, including replica Stone Age caves, Celtic farms, Norman castles, and Viking camps. This approach showcased Thorpe Park's commitment to comprehensive entertainment experiences. 
+
+**Key Observations:**
+
+* **Technological Innovation:**  Falcon Flight exemplifies the integration of cutting-edge technology in roller coaster design and construction. It highlights the industry's continuous drive for advancements in this specific area.
+* **The Evolution of Theme Parks:** The journey from basic leisure attractions to immersive park experiences illustrates the evolving nature of theme parks, reflecting a growing desire for more than just traditional rides. 
+
+
+**Conclusion:**
+
+Both Falcon Flight and Thorpe Park demonstrate distinct approaches to theme park development. One focuses on pushing technological boundaries with ambitious roller coasters, while the other emphasizes creating immersive, historical-themed experiences that engage visitors on multiple levels. Their stories offer valuable insight into the dynamic world of theme parks and their ongoing evolution as entertainment destinations.
+
+
+
+**Works Cited:**
+
+* "Falcons Flight." Wikipedia, Wikimedia Foundation, en.wikipedia.org/wiki/Falcons_Flight. Accessed 21 Nov. 2025.
+* "Hyperia (roller coaster)." Wikipedia, Wikimedia Foundation, en.wikipedia.org/wiki/Hyperia_(roller_coaster). Accessed 21 Nov. 2025.
+* "Thorpe Park." Wikipedia, Wikimedia Foundation, en.wikipedia.org/wiki/Thorpe_Park. Accessed 21 Nov. 2025. 
+
+
+
+

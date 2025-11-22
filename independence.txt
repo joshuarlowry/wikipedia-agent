@@ -1,0 +1,43 @@
+Wikipedia Research Agent - CLI
+===============================
+
+╭───────────────────────────────────────────────────────╮
+│ Question: who signed the declaration of independence? │
+╰───────────────────────────────────────────────────────╯
+
+Found articles:
+  • Signing of the United States Declaration of Independence
+(1614 words)
+  • United States Declaration of Independence (10837 words)
+  • Texas Declaration of Independence (1289 words)
+
+Generating response...
+
+The United States Declaration of Independence is considered one of the most significant documents in history, proclaiming the thirteen American colonies' separation from British rule.  Here's a breakdown of key information and points from the provided sources:
+
+**Origins and Importance:** The document was drafted by Thomas Jefferson, drawing inspiration from Enlightenment thinkers like John Locke and Jean-Jacques Rousseau. Its core principles – life, liberty, and the pursuit of happiness; due process; and representative government – became cornerstones for modern democracies worldwide. 
+
+**Key Dates and Events:**
+* **July 4, 1776:** The Declaration was adopted by the Continental Congress in Philadelphia, officially declaring independence from Great Britain. This date is celebrated annually as Independence Day in the United States. 
+
+**Historical Context:**  The American Revolution (1775-1783) was a complex conflict rooted in British policies that suppressed colonial autonomy and freedom of expression. The Declaration served as a powerful statement against British rule, outlining grievances against King George III and asserting the colonists' right to self-determination. 
+
+**Legacy:**  The Declaration has had a profound impact on the world. It served as an inspiration for other nations seeking independence from oppressive regimes and continues to be a symbol of freedom, equality, and democracy. 
+   * **Influence on other documents:** It became the foundation for national constitutions and declarations of rights in various countries worldwide.
+   * **Ongoing debate:** The principles outlined in the Declaration continue to inspire ethical and political debates about liberty, justice, and individual rights in modern societies.  
+
+
+**Key Takeaways:**
+
+* The US Declaration of Independence was a groundbreaking document that laid the foundation for the United States as an independent nation. 
+* It articulated ideals of freedom, equality, and self-government that have inspired generations across the globe. 
+* Its principles continue to shape political discourse and social change worldwide.
+
+
+**Works Cited:**
+
+"Signing of the United States Declaration of Independence." Wikipedia, Wikimedia Foundation, en.wikipedia.org/wiki/Signing_of_the_United_States_Declaration_of_Independence. Accessed 21 Nov. 2025.
+"United States Declaration of Independence." Wikipedia, Wikimedia Foundation, en.wikipedia.org/wiki/United_States_Declaration_of_Independence. Accessed 21 Nov. 2025.
+"Texas Declaration of Independence." Wikipedia, Wikimedia Foundation, en.wikipedia.org/wiki/Texas_Declaration_of_Independence. Accessed 21 Nov. 2025. 
+
+

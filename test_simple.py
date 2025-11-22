@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+"""Simple test to verify Wikipedia search and agent work."""
+
+from src.config import Config
+from src.agent import WikipediaAgent
+
+print("Testing Wikipedia Research Agent")
+print("=" * 50)
+print()
+
+# Initialize
+config = Config("config.yaml")
+agent = WikipediaAgent(config)
+
+print(f"✓ Agent initialized")
+print(f"  Provider: {config.llm_provider}")
+print(f"  Model: {config.ollama_config.get('model')}")
+print(f"  Agent ready: {agent.is_ready}")
+print()
+
+# Test Wikipedia search
+print("Testing Wikipedia search...")
+try:
+    articles = agent.search_wikipedia("Python programming")
+    if articles:
+        print(f"✓ Found {len(articles)} article(s):")
+        for article in articles:
+            print(f"  - {article.title}")
+            print(f"    URL: {article.url}")
+            print(f"    Word count: {article.word_count}")
+    else:
+        print("✗ No articles found")
+except Exception as e:
+    print(f"✗ Error during search: {e}")
+    import traceback
+    traceback.print_exc()
+
+print()
+print("=" * 50)
+print("If the search worked, you can now run: ./start.sh")
