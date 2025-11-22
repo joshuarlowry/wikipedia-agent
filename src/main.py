@@ -33,12 +33,20 @@ def main():
         action="store_true",
         help="Disable streaming output",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output structured JSON instead of MLA-formatted text",
+    )
 
     args = parser.parse_args()
 
     # Load configuration
     try:
         config = Config(args.config)
+        # Override output format if --json flag is provided
+        if args.json:
+            config._config["agent"]["output_format"] = "json"
     except Exception as e:
         console.print(f"[red]Error loading config: {e}[/red]")
         sys.exit(1)
@@ -68,7 +76,12 @@ def main():
             # Non-streaming
             with console.status("[bold green]Processing...", spinner="dots"):
                 response = agent.query(args.query, stream=False)
-            console.print(Markdown(response))
+            # Display response based on output format
+            if args.json:
+                # For JSON, print as-is without Markdown formatting
+                console.print(response)
+            else:
+                console.print(Markdown(response))
         else:
             # Streaming
             response_text = ""
