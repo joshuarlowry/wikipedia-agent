@@ -1,7 +1,7 @@
 """Wikipedia research agent using Strands framework."""
 
 import os
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Callable
 from strands import Agent
 from strands.models.ollama import OllamaModel
 from strands.models.litellm import LiteLLMModel
@@ -48,6 +48,7 @@ class WikipediaAgent:
         self.config = config or Config()
         self.prompt_manager = PromptManager()
         self.output_format = self.config.output_format
+        self.status_callback = None
 
         # Create Strands model
         self.model = create_model_from_config(self.config)
@@ -60,6 +61,15 @@ class WikipediaAgent:
             model=self.model,
             tools=tools,
         )
+
+    def set_status_callback(self, callback: Callable[[str], None]):
+        """Set a callback function to receive status updates."""
+        self.status_callback = callback
+
+    def _emit_status(self, message: str):
+        """Emit a status message if callback is set."""
+        if self.status_callback:
+            self.status_callback(message)
 
     def query(self, question: str, stream: bool = False) -> str | Iterator[str]:
         """
@@ -112,7 +122,34 @@ Instructions:
 
     def _sync_query(self, prompt: str) -> str:
         """Execute query synchronously."""
-        result = self.agent(prompt)
+        # Create agent with callback to intercept tool calls
+        def callback_handler(**kwargs):
+            # Detect tool calls
+            if "tool_name" in kwargs:
+                tool_name = kwargs["tool_name"]
+                if "search" in tool_name.lower():
+                    self._emit_status("🔍 Searching Wikipedia for relevant articles...")
+                elif "retrieve" in tool_name.lower():
+                    self._emit_status("📥 Retrieving article content...")
+                elif "citation" in tool_name.lower():
+                    self._emit_status("📝 Formatting citations...")
+            # Detect when LLM starts generating
+            if "data" in kwargs and kwargs.get("event") == "start":
+                self._emit_status("✍️  Analyzing articles and generating response...")
+
+        # Select tools based on output format
+        tools = wikipedia_tools_json if self.output_format == "json" else wikipedia_tools
+
+        # Create agent with callback
+        agent_with_callback = Agent(
+            model=self.model,
+            tools=tools,
+            callback_handler=callback_handler,
+        )
+
+        self._emit_status("🚀 Starting research process...")
+        result = agent_with_callback(prompt)
+        self._emit_status("✅ Research complete!")
 
         # Extract the response text from Strands result
         # Strands returns an AgentResult object with various attributes
@@ -129,9 +166,26 @@ Instructions:
         try:
             # Use Strands streaming with callback
             accumulated_text = []
+            generation_started = False
 
             def callback_handler(**kwargs):
+                nonlocal generation_started
+                
+                # Detect tool calls
+                if "tool_name" in kwargs:
+                    tool_name = kwargs["tool_name"]
+                    if "search" in tool_name.lower():
+                        self._emit_status("🔍 Searching Wikipedia for relevant articles...")
+                    elif "retrieve" in tool_name.lower():
+                        self._emit_status("📥 Retrieving article content...")
+                    elif "citation" in tool_name.lower():
+                        self._emit_status("📝 Formatting citations...")
+                
+                # Detect when LLM starts generating and collect text
                 if "data" in kwargs:
+                    if not generation_started:
+                        self._emit_status("✍️  Analyzing articles and generating response...")
+                        generation_started = True
                     accumulated_text.append(kwargs["data"])
 
             # Select tools based on output format
@@ -144,12 +198,16 @@ Instructions:
                 callback_handler=callback_handler,
             )
 
+            self._emit_status("🚀 Starting research process...")
+            
             # Execute the query
             result = streaming_agent(prompt)
 
             # Yield accumulated text
             for chunk in accumulated_text:
                 yield chunk
+            
+            self._emit_status("✅ Research complete!")
 
         except Exception as e:
             yield f"Error during streaming: {e}"

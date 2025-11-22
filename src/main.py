@@ -67,15 +67,18 @@ def main():
     console.print(Panel(f"[bold cyan]Question:[/bold cyan] {args.query}", expand=False))
     console.print()
 
-    # Generate response using Strands agent
-    console.print("[bold green]Researching and generating response...[/bold green]")
-    console.print()
+    # Set up status callback to show progress
+    def status_callback(message: str):
+        console.print(f"[dim]{message}[/dim]")
+    
+    agent.set_status_callback(status_callback)
 
     try:
         if args.no_stream:
             # Non-streaming
-            with console.status("[bold green]Processing...", spinner="dots"):
-                response = agent.query(args.query, stream=False)
+            console.print()
+            response = agent.query(args.query, stream=False)
+            console.print()
             # Display response based on output format
             if args.json:
                 # For JSON, print as-is without Markdown formatting
@@ -84,6 +87,7 @@ def main():
                 console.print(Markdown(response))
         else:
             # Streaming
+            console.print()
             response_text = ""
             for chunk in agent.query(args.query, stream=True):
                 response_text += chunk
