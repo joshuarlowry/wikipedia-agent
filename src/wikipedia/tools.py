@@ -1,5 +1,6 @@
 """Strands tools for Wikipedia search and citation."""
 
+import json
 from datetime import datetime
 from typing import List
 from strands import tool
@@ -144,10 +145,81 @@ def format_mla_citation(title: str) -> str:
     return citation
 
 
+@tool
+def search_and_retrieve_articles_json(query: str, max_articles: int = 3, max_chars_per_article: int = 3000) -> str:
+    """
+    Search Wikipedia and retrieve articles in JSON format with structured metadata.
+
+    This tool is designed for JSON output mode - it returns structured data
+    about sources that can be used for fact extraction and referencing.
+
+    Args:
+        query: The search query
+        max_articles: Maximum number of articles to retrieve (default: 3)
+        max_chars_per_article: Maximum characters per article (default: 3000)
+
+    Returns:
+        JSON string with articles and their metadata
+    """
+    articles = _wiki_search.search_and_retrieve(
+        query=query,
+        max_articles=max_articles,
+        max_chars_per_article=max_chars_per_article
+    )
+
+    if not articles:
+        return json.dumps({
+            "error": f"No Wikipedia articles found for query: {query}",
+            "query": query,
+            "sources": [],
+            "articles_content": []
+        }, indent=2)
+
+    # Format articles as structured JSON
+    sources = []
+    articles_content = []
+    
+    for i, article in enumerate(articles, 1):
+        source_id = f"source_{i}"
+        
+        # Source metadata
+        sources.append({
+            "id": source_id,
+            "title": article.title,
+            "url": article.url,
+            "last_modified": article.last_modified.strftime('%Y-%m-%d') if article.last_modified else None,
+            "word_count": article.word_count
+        })
+        
+        # Article content for fact extraction
+        articles_content.append({
+            "source_id": source_id,
+            "title": article.title,
+            "summary": article.summary,
+            "content": article.content
+        })
+
+    result = {
+        "query": query,
+        "sources": sources,
+        "articles_content": articles_content,
+        "retrieved_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+    return json.dumps(result, indent=2)
+
+
 # Export tools list for easy registration
 wikipedia_tools = [
     search_wikipedia,
     get_wikipedia_article,
     search_and_retrieve_articles,
     format_mla_citation,
+]
+
+# Separate tool list for JSON mode
+wikipedia_tools_json = [
+    search_wikipedia,
+    get_wikipedia_article,
+    search_and_retrieve_articles_json,
 ]

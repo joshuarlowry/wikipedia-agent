@@ -8,7 +8,7 @@ from strands.models.litellm import LiteLLMModel
 
 from .config import Config
 from .prompts import PromptManager
-from .wikipedia.tools import wikipedia_tools
+from .wikipedia.tools import wikipedia_tools, wikipedia_tools_json
 
 
 def create_model_from_config(config: Config):
@@ -47,14 +47,18 @@ class WikipediaAgent:
         """Initialize the Wikipedia agent with Strands."""
         self.config = config or Config()
         self.prompt_manager = PromptManager()
+        self.output_format = self.config.output_format
 
         # Create Strands model
         self.model = create_model_from_config(self.config)
 
+        # Select tools based on output format
+        tools = wikipedia_tools_json if self.output_format == "json" else wikipedia_tools
+
         # Create Strands agent with Wikipedia tools
         self.agent = Agent(
             model=self.model,
-            tools=wikipedia_tools,
+            tools=tools,
         )
 
     def query(self, question: str, stream: bool = False) -> str | Iterator[str]:
@@ -68,11 +72,29 @@ class WikipediaAgent:
         Returns:
             Complete response string or iterator of response chunks
         """
-        # Build the prompt with instructions
-        system_prompt = self.prompt_manager.get_system_prompt()
+        # Build the prompt with instructions based on output format
+        system_prompt = self.prompt_manager.get_system_prompt(mode=self.output_format)
 
-        # Create a comprehensive prompt for the agent
-        full_prompt = f"""{system_prompt}
+        if self.output_format == "json":
+            # JSON mode instructions
+            full_prompt = f"""{system_prompt}
+
+User Question: {question}
+
+Instructions:
+1. Use the search_and_retrieve_articles_json tool to find relevant Wikipedia articles for this question
+2. Analyze the articles carefully and extract specific facts
+3. For each fact, identify which source(s) it came from
+4. Return ONLY valid JSON with the following structure:
+   - query: the user's question
+   - sources: list of source metadata
+   - facts: list of extracted facts with source references
+   - summary: brief overview
+5. Do not include any text before or after the JSON object
+"""
+        else:
+            # MLA mode instructions
+            full_prompt = f"""{system_prompt}
 
 User Question: {question}
 
@@ -112,10 +134,13 @@ Instructions:
                 if "data" in kwargs:
                     accumulated_text.append(kwargs["data"])
 
+            # Select tools based on output format
+            tools = wikipedia_tools_json if self.output_format == "json" else wikipedia_tools
+
             # Create an agent with callback
             streaming_agent = Agent(
                 model=self.model,
-                tools=wikipedia_tools,
+                tools=tools,
                 callback_handler=callback_handler,
             )
 

@@ -20,3 +20,4 @@ wikipedia:
 agent:
   stream_response: true
   enforce_citations: true
+  output_format: "mla"  # mla | json - MLA format with citations or JSON with structured facts

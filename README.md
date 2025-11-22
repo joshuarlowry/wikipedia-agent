@@ -10,7 +10,9 @@ A Wikipedia research agent powered by the **[Strands Agents framework](https://s
 - **Interactive TUI**: Beautiful terminal interface with real-time updates
 - **Wikipedia Tools**: Strands tools for searching, retrieving, and citing Wikipedia articles
 - **Multiple LLM Backends**: Support for Ollama (local), OpenRouter (cloud), and more via Strands
-- **MLA Citations**: Automatically generates properly formatted MLA 9th edition citations
+- **Dual Output Modes**: 
+  - **MLA Mode**: Comprehensive responses with properly formatted MLA 9th edition citations
+  - **JSON Mode**: Structured data with sources, facts, and references for programmatic use
 - **Configurable**: YAML-based configuration with environment variable support
 - **Streaming Support**: Real-time streaming responses from LLMs
 - **Template System**: Customizable prompts with citation enforcement
@@ -61,6 +63,66 @@ wikipedia:
 agent:
   stream_response: true
   enforce_citations: true
+  output_format: "mla"  # mla | json
+```
+
+### Output Formats
+
+The agent supports two output formats:
+
+#### MLA Format (Default)
+Returns a comprehensive narrative response with proper MLA 9th edition citations.
+
+```yaml
+agent:
+  output_format: "mla"
+```
+
+Example output:
+```
+Quantum computing is a revolutionary approach to computation that leverages
+quantum mechanical phenomena like superposition and entanglement...
+
+Works Cited
+"Quantum Computing." Wikipedia, Wikimedia Foundation, 15 Nov. 2024,
+    en.wikipedia.org/wiki/Quantum_computing. Accessed 22 Nov. 2025.
+```
+
+#### JSON Format
+Returns structured data with sources and facts, ideal for programmatic use.
+
+```yaml
+agent:
+  output_format: "json"
+```
+
+Example output:
+```json
+{
+  "query": "What is quantum computing?",
+  "sources": [
+    {
+      "id": "source_1",
+      "title": "Quantum computing",
+      "url": "https://en.wikipedia.org/wiki/Quantum_computing",
+      "last_modified": "2024-11-15",
+      "word_count": 5000
+    }
+  ],
+  "facts": [
+    {
+      "fact": "Quantum computing uses quantum bits (qubits) which can exist in superposition",
+      "source_ids": ["source_1"],
+      "category": "definition"
+    },
+    {
+      "fact": "Quantum computers can solve certain problems exponentially faster than classical computers",
+      "source_ids": ["source_1", "source_2"],
+      "category": "application"
+    }
+  ],
+  "summary": "Quantum computing leverages quantum mechanical phenomena to perform computations. It uses qubits that can exist in superposition, enabling exponential speedup for specific problems."
+}
 ```
 
 ## Usage
@@ -119,6 +181,14 @@ for chunk in agent.query("What is machine learning?", stream=True):
 # Query without streaming
 response = agent.query("What is artificial intelligence?", stream=False)
 print(response)
+
+# Use JSON mode
+from src.config import Config
+config = Config("config.yaml")
+config._config["agent"]["output_format"] = "json"
+json_agent = WikipediaAgent(config)
+json_response = json_agent.query("What is machine learning?", stream=False)
+print(json_response)  # Returns structured JSON
 ```
 
 ## Testing

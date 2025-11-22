@@ -63,3 +63,8 @@ class Config:
     def agent_config(self) -> Dict[str, Any]:
         """Get agent configuration."""
         return self.get("agent", {})
+
+    @property
+    def output_format(self) -> str:
+        """Get the output format (mla or json)."""
+        return self.get("agent.output_format", "mla")
