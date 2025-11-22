@@ -52,8 +52,8 @@ jobs:
         
         wikipedia:
           language: "en"
-          max_articles: 2
-          max_chars_per_article: 2000
+          max_articles: 1
+          max_chars_per_article: 800
         
         agent:
           stream_response: false
@@ -84,8 +84,8 @@ jobs:
             assert agent.output_format == "mla", f"Expected 'mla', got '{agent.output_format}'"
             print("✓ Output format: MLA")
             
-            # Test query
-            question = "What is Python programming language?"
+            # Test query - keep it simple to reduce tokens
+            question = "What is Python?"
             print(f"\nQuery: {question}\n")
             
             response = agent.query(question, stream=False)
@@ -146,8 +146,8 @@ jobs:
             assert agent.output_format == "json", f"Expected 'json', got '{agent.output_format}'"
             print("✓ Output format: JSON")
             
-            # Test query
-            question = "What is artificial intelligence?"
+            # Test query - keep it simple to reduce tokens
+            question = "What is AI?"
             print(f"\nQuery: {question}\n")
             
             response = agent.query(question, stream=False)
