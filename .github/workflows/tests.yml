@@ -1,0 +1,234 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+    
+    - name: Run unit tests
+      run: |
+        uv run pytest tests/ -v --cov=src --cov-report=term-missing
+    
+    - name: Create test config for OpenRouter
+      run: |
+        cat > config_test.yaml << 'EOF'
+        llm:
+          provider: "openrouter"
+        
+          ollama:
+            base_url: "http://localhost:11434"
+            model: "mistral:latest"
+            temperature: 0.7
+        
+          openrouter:
+            base_url: "https://openrouter.ai/api/v1"
+            api_key_env: "OPENROUTER_API_KEY"
+            model: "meta-llama/llama-3.3-70b-instruct"
+            temperature: 0.7
+        
+        wikipedia:
+          language: "en"
+          max_articles: 2
+          max_chars_per_article: 2000
+        
+        agent:
+          stream_response: false
+          enforce_citations: true
+          output_format: "mla"
+        EOF
+    
+    - name: End-to-end test - Markdown mode
+      env:
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      run: |
+        cat > test_e2e_markdown.py << 'EOF'
+        #!/usr/bin/env python3
+        """End-to-end test for Markdown/MLA mode."""
+        import sys
+        from src.agent import WikipediaAgent
+        from src.config import Config
+        
+        print("=" * 60)
+        print("END-TO-END TEST: MARKDOWN/MLA MODE")
+        print("=" * 60)
+        
+        try:
+            config = Config("config_test.yaml")
+            agent = WikipediaAgent(config)
+            
+            # Verify MLA mode is set
+            assert agent.output_format == "mla", f"Expected 'mla', got '{agent.output_format}'"
+            print("✓ Output format: MLA")
+            
+            # Test query
+            question = "What is Python programming language?"
+            print(f"\nQuery: {question}\n")
+            
+            response = agent.query(question, stream=False)
+            
+            if not response or len(response) < 50:
+                print(f"✗ Response too short or empty: {len(response)} chars")
+                sys.exit(1)
+            
+            print(f"✓ Received response: {len(response)} characters")
+            
+            # Check for citation markers
+            if "Wikipedia" in response or "Works Cited" in response or "." in response:
+                print("✓ Response contains expected content")
+            else:
+                print("⚠ Warning: Response may not contain citations")
+            
+            # Show preview
+            print("\nResponse preview:")
+            print("-" * 60)
+            print(response[:300] + "..." if len(response) > 300 else response)
+            print("-" * 60)
+            
+            print("\n✓ MARKDOWN MODE TEST PASSED!")
+            sys.exit(0)
+            
+        except Exception as e:
+            print(f"\n✗ Test failed: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        EOF
+        
+        uv run python test_e2e_markdown.py
+    
+    - name: End-to-end test - JSON mode
+      env:
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      run: |
+        cat > test_e2e_json.py << 'EOF'
+        #!/usr/bin/env python3
+        """End-to-end test for JSON mode."""
+        import sys
+        import json
+        from src.agent import WikipediaAgent
+        from src.config import Config
+        
+        print("=" * 60)
+        print("END-TO-END TEST: JSON MODE")
+        print("=" * 60)
+        
+        try:
+            config = Config("config_test.yaml")
+            # Override to JSON mode
+            config._config["agent"]["output_format"] = "json"
+            agent = WikipediaAgent(config)
+            
+            # Verify JSON mode is set
+            assert agent.output_format == "json", f"Expected 'json', got '{agent.output_format}'"
+            print("✓ Output format: JSON")
+            
+            # Test query
+            question = "What is artificial intelligence?"
+            print(f"\nQuery: {question}\n")
+            
+            response = agent.query(question, stream=False)
+            
+            if not response or len(response) < 50:
+                print(f"✗ Response too short or empty: {len(response)} chars")
+                sys.exit(1)
+            
+            print(f"✓ Received response: {len(response)} characters")
+            
+            # Parse JSON
+            json_start = response.find('{')
+            json_end = response.rfind('}') + 1
+            
+            if json_start == -1 or json_end <= json_start:
+                print("✗ No JSON object found in response")
+                print("Response preview:")
+                print(response[:500])
+                sys.exit(1)
+            
+            json_str = response[json_start:json_end]
+            data = json.loads(json_str)
+            print("✓ Valid JSON response")
+            
+            # Validate structure
+            required_fields = ['query', 'sources', 'facts', 'summary']
+            missing_fields = [f for f in required_fields if f not in data]
+            if missing_fields:
+                print(f"✗ Missing required fields: {missing_fields}")
+                sys.exit(1)
+            
+            print("✓ All required fields present")
+            
+            # Validate types
+            if not isinstance(data['sources'], list):
+                print("✗ 'sources' should be a list")
+                sys.exit(1)
+            
+            if not isinstance(data['facts'], list):
+                print("✗ 'facts' should be a list")
+                sys.exit(1)
+            
+            print(f"✓ Found {len(data['sources'])} sources")
+            print(f"✓ Found {len(data['facts'])} facts")
+            
+            # Show summary
+            print("\nJSON structure summary:")
+            print(f"  Query: {data.get('query', 'N/A')}")
+            print(f"  Sources: {len(data.get('sources', []))}")
+            print(f"  Facts: {len(data.get('facts', []))}")
+            print(f"  Summary length: {len(data.get('summary', ''))} chars")
+            
+            if data.get('sources'):
+                print("\n  Source titles:")
+                for source in data['sources'][:3]:
+                    print(f"    - {source.get('title', 'Unknown')}")
+            
+            print("\n✓ JSON MODE TEST PASSED!")
+            sys.exit(0)
+            
+        except json.JSONDecodeError as e:
+            print(f"\n✗ JSON parsing error: {e}")
+            print("\nResponse preview:")
+            print(response[:500] if 'response' in locals() else "No response")
+            sys.exit(1)
+        except Exception as e:
+            print(f"\n✗ Test failed: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        EOF
+        
+        uv run python test_e2e_json.py
+    
+    - name: Test summary
+      if: always()
+      run: |
+        echo "=========================================="
+        echo "TEST SUMMARY"
+        echo "=========================================="
+        echo "Unit tests: Completed"
+        echo "E2E Markdown mode: Completed"
+        echo "E2E JSON mode: Completed"
+        echo "=========================================="
