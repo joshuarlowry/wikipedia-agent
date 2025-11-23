@@ -1,0 +1,168 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+    
+    - name: Run unit tests
+      run: |
+        uv run pytest tests/ -v --cov=src --cov-report=term-missing
+    
+    - name: Run integration tests with mocked LLM
+      run: |
+        cat > test_integration_mocked.py << 'EOF'
+        #!/usr/bin/env python3
+        """Integration tests with mocked LLM responses - no API calls."""
+        import sys
+        import os
+        from unittest.mock import Mock, patch, MagicMock
+        from src.agent import WikipediaAgent
+        from src.config import Config
+        
+        print("=" * 60)
+        print("INTEGRATION TESTS (MOCKED)")
+        print("=" * 60)
+        
+        def test_agent_initialization():
+            """Test that agent initializes correctly with mocked model."""
+            print("\n1. Testing agent initialization...")
+            
+            # Mock the model creation to avoid needing real credentials
+            with patch('src.agent.create_model_from_config') as mock_create_model:
+                mock_model = Mock()
+                mock_create_model.return_value = mock_model
+                
+                config = Config("config.yaml")
+                agent = WikipediaAgent(config)
+                
+                assert agent.output_format in ["mla", "json"]
+                assert agent.config == config
+                print("   ✓ Agent initialized successfully")
+            return True
+        
+        def test_output_format_switching():
+            """Test that output format can be switched."""
+            print("\n2. Testing output format switching...")
+            
+            with patch('src.agent.create_model_from_config') as mock_create_model:
+                mock_model = Mock()
+                mock_create_model.return_value = mock_model
+                
+                config = Config("config.yaml")
+                
+                # Test MLA mode
+                agent_mla = WikipediaAgent(config)
+                assert agent_mla.output_format == "mla"
+                print("   ✓ MLA mode configured")
+                
+                # Test JSON mode
+                config._config["agent"]["output_format"] = "json"
+                agent_json = WikipediaAgent(config)
+                assert agent_json.output_format == "json"
+                print("   ✓ JSON mode configured")
+            return True
+        
+        def test_query_with_mock():
+            """Test query with mocked response."""
+            print("\n3. Testing query with mocked response...")
+            
+            mock_response = """
+            Python is a high-level programming language ("Python (programming language)").
+            It was created by Guido van Rossum in 1991 ("Python (programming language)").
+            
+            Works Cited
+            "Python (programming Language)." Wikipedia, Wikimedia Foundation, 
+                en.wikipedia.org/wiki/Python_(programming_language). Accessed 22 Nov. 2025.
+            """
+            
+            # Mock the Agent class since _sync_query creates a new Agent instance
+            with patch('src.agent.create_model_from_config') as mock_create_model, \
+                 patch('src.agent.Agent') as MockAgent:
+                
+                mock_model = Mock()
+                mock_create_model.return_value = mock_model
+                
+                # Mock the Agent instance and its __call__ method
+                mock_agent_instance = Mock()
+                mock_agent_instance.return_value = Mock(output=mock_response)
+                MockAgent.return_value = mock_agent_instance
+                
+                config = Config("config.yaml")
+                agent = WikipediaAgent(config)
+                
+                response = agent.query("What is Python?", stream=False)
+                
+                assert len(response) > 50
+                assert "Python" in response
+                assert "Works Cited" in response
+                print("   ✓ Query executed with mocked response")
+            return True
+        
+        try:
+            results = []
+            results.append(("Agent Initialization", test_agent_initialization()))
+            results.append(("Output Format Switching", test_output_format_switching()))
+            results.append(("Query with Mock", test_query_with_mock()))
+            
+            print("\n" + "=" * 60)
+            print("TEST SUMMARY")
+            print("=" * 60)
+            for name, passed in results:
+                status = "✓ PASS" if passed else "✗ FAIL"
+                print(f"{status} - {name}")
+            
+            all_passed = all(result[1] for result in results)
+            if all_passed:
+                print("\n✓ ALL INTEGRATION TESTS PASSED!")
+                sys.exit(0)
+            else:
+                print("\n✗ SOME TESTS FAILED")
+                sys.exit(1)
+        except Exception as e:
+            print(f"\n✗ Test failed: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        EOF
+        
+        uv run python test_integration_mocked.py
+    
+    - name: Test summary
+      if: always()
+      run: |
+        echo "=========================================="
+        echo "CI TEST SUMMARY"
+        echo "=========================================="
+        echo "✓ Unit tests: Completed (pytest)"
+        echo "✓ Integration tests: Completed (mocked LLM)"
+        echo ""
+        echo "Note: E2E tests with real API calls have been"
+        echo "moved to manual testing to avoid API costs."
+        echo "Run 'python test_e2e_manual.py' locally to"
+        echo "test with real OpenRouter API."
+        echo "=========================================="
