@@ -33,222 +33,93 @@ jobs:
       run: |
         uv run pytest tests/ -v --cov=src --cov-report=term-missing
     
-    - name: Create test config for OpenRouter
+    - name: Run integration tests with mocked LLM
       run: |
-        cat > config_test.yaml << 'EOF'
-        llm:
-          provider: "openrouter"
-        
-          ollama:
-            base_url: "http://localhost:11434"
-            model: "mistral:latest"
-            temperature: 0.7
-        
-          openrouter:
-            base_url: "https://openrouter.ai/api/v1"
-            api_key_env: "OPENROUTER_API_KEY"
-            model: "meta-llama/llama-3.3-70b-instruct"
-            temperature: 0.7
-        
-        wikipedia:
-          language: "en"
-          max_articles: 1
-          max_chars_per_article: 800
-        
-        agent:
-          stream_response: false
-          enforce_citations: true
-          output_format: "mla"
-        EOF
-    
-    - name: End-to-end test - Markdown mode
-      env:
-        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      run: |
-        cat > test_e2e_markdown.py << 'EOF'
+        cat > test_integration_mocked.py << 'EOF'
         #!/usr/bin/env python3
-        """End-to-end test for Markdown/MLA mode."""
+        """Integration tests with mocked LLM responses - no API calls."""
         import sys
+        from unittest.mock import Mock, patch, MagicMock
         from src.agent import WikipediaAgent
         from src.config import Config
         
         print("=" * 60)
-        print("END-TO-END TEST: MARKDOWN/MLA MODE")
+        print("INTEGRATION TESTS (MOCKED)")
         print("=" * 60)
         
-        try:
-            config = Config("config_test.yaml")
+        def test_agent_initialization():
+            """Test that agent initializes correctly."""
+            print("\n1. Testing agent initialization...")
+            config = Config("config.yaml")
             agent = WikipediaAgent(config)
             
-            # Verify MLA mode is set
-            assert agent.output_format == "mla", f"Expected 'mla', got '{agent.output_format}'"
-            print("✓ Output format: MLA")
-            
-            # Test query - keep it simple to reduce tokens
-            question = "What is Python?"
-            print(f"\nQuery: {question}\n")
-            
-            response = agent.query(question, stream=False)
-            
-            if not response or len(response) < 50:
-                print(f"✗ Response too short or empty: {len(response)} chars")
-                sys.exit(1)
-            
-            print(f"✓ Received response: {len(response)} characters")
-            
-            # Check for citation markers
-            if "Wikipedia" in response or "Works Cited" in response or "." in response:
-                print("✓ Response contains expected content")
-            else:
-                print("⚠ Warning: Response may not contain citations")
-            
-            # Show preview
-            print("\nResponse preview:")
-            print("-" * 60)
-            print(response[:300] + "..." if len(response) > 300 else response)
-            print("-" * 60)
-            
-            print("\n✓ MARKDOWN MODE TEST PASSED!")
-            sys.exit(0)
-            
-        except Exception as e:
-            print(f"\n✗ Test failed: {e}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
-        EOF
+            assert agent.output_format in ["mla", "json"]
+            assert agent.is_ready
+            print("   ✓ Agent initialized successfully")
+            return True
         
-        uv run python test_e2e_markdown.py
-    
-    - name: End-to-end test - JSON mode
-      env:
-        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      run: |
-        cat > test_e2e_json.py << 'EOF'
-        #!/usr/bin/env python3
-        """End-to-end test for JSON mode."""
-        import sys
-        import json
-        from src.agent import WikipediaAgent
-        from src.config import Config
-        
-        print("=" * 60)
-        print("END-TO-END TEST: JSON MODE")
-        print("=" * 60)
-        
-        try:
-            config = Config("config_test.yaml")
-            # Override to JSON mode
+        def test_output_format_switching():
+            """Test that output format can be switched."""
+            print("\n2. Testing output format switching...")
+            config = Config("config.yaml")
+            
+            # Test MLA mode
+            agent_mla = WikipediaAgent(config)
+            assert agent_mla.output_format == "mla"
+            print("   ✓ MLA mode configured")
+            
+            # Test JSON mode
             config._config["agent"]["output_format"] = "json"
+            agent_json = WikipediaAgent(config)
+            assert agent_json.output_format == "json"
+            print("   ✓ JSON mode configured")
+            return True
+        
+        def test_query_with_mock():
+            """Test query with mocked response."""
+            print("\n3. Testing query with mocked response...")
+            config = Config("config.yaml")
             agent = WikipediaAgent(config)
             
-            # Verify JSON mode is set
-            assert agent.output_format == "json", f"Expected 'json', got '{agent.output_format}'"
-            print("✓ Output format: JSON")
+            # Mock the agent's query method
+            mock_response = """
+            Python is a high-level programming language ("Python (programming language)").
+            It was created by Guido van Rossum in 1991 ("Python (programming language)").
             
-            # Test query - keep it simple to reduce tokens
-            question = "What is AI?"
-            print(f"\nQuery: {question}\n")
+            Works Cited
+            "Python (programming Language)." Wikipedia, Wikimedia Foundation, 
+                en.wikipedia.org/wiki/Python_(programming_language). Accessed 22 Nov. 2025.
+            """
             
-            response = agent.query(question, stream=False)
+            with patch.object(agent.agent, '__call__', return_value=Mock(output=mock_response)):
+                response = agent.query("What is Python?", stream=False)
+                
+                assert len(response) > 50
+                assert "Python" in response
+                assert "Works Cited" in response
+                print("   ✓ Query executed with mocked response")
+            return True
+        
+        try:
+            results = []
+            results.append(("Agent Initialization", test_agent_initialization()))
+            results.append(("Output Format Switching", test_output_format_switching()))
+            results.append(("Query with Mock", test_query_with_mock()))
             
-            if not response or len(response) < 50:
-                print(f"✗ Response too short or empty: {len(response)} chars")
-                sys.exit(1)
+            print("\n" + "=" * 60)
+            print("TEST SUMMARY")
+            print("=" * 60)
+            for name, passed in results:
+                status = "✓ PASS" if passed else "✗ FAIL"
+                print(f"{status} - {name}")
             
-            print(f"✓ Received response: {len(response)} characters")
-            
-            # Parse JSON - try to extract valid JSON robustly
-            json_start = response.find('{')
-            
-            if json_start == -1:
-                print("✗ No JSON object found in response")
-                print("Response preview:")
-                print(response[:500])
-                sys.exit(1)
-            
-            # Try to parse JSON by finding balanced braces
-            data = None
-            brace_count = 0
-            json_end = json_start
-            
-            for i in range(json_start, len(response)):
-                if response[i] == '{':
-                    brace_count += 1
-                elif response[i] == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        json_end = i + 1
-                        break
-            
-            if brace_count != 0:
-                print("✗ Unbalanced braces in JSON response")
-                print("Response preview:")
-                print(response[:1000])
-                sys.exit(1)
-            
-            json_str = response[json_start:json_end]
-            
-            try:
-                data = json.loads(json_str)
-                print("✓ Valid JSON response")
-            except json.JSONDecodeError as e:
-                print(f"✗ JSON parse error: {e}")
-                print(f"JSON string length: {len(json_str)}")
-                print("First 500 chars of JSON:")
-                print(json_str[:500])
-                print("\nLast 200 chars of JSON:")
-                print(json_str[-200:])
-                sys.exit(1)
-            
-            # Validate structure - check for key fields but be lenient
-            print(f"✓ JSON fields present: {list(data.keys())}")
-            
-            # At minimum, we need query and sources
-            if 'query' not in data:
-                print("✗ Missing 'query' field")
-                sys.exit(1)
-            print("✓ Query field present")
-            
-            if 'sources' in data:
-                if not isinstance(data['sources'], list):
-                    print("✗ 'sources' should be a list")
-                    sys.exit(1)
-                print(f"✓ Found {len(data['sources'])} sources")
+            all_passed = all(result[1] for result in results)
+            if all_passed:
+                print("\n✓ ALL INTEGRATION TESTS PASSED!")
+                sys.exit(0)
             else:
-                print("⚠ No sources field (acceptable)")
-            
-            if 'facts' in data:
-                if not isinstance(data['facts'], list):
-                    print("✗ 'facts' should be a list")
-                    sys.exit(1)
-                print(f"✓ Found {len(data['facts'])} facts")
-            else:
-                print("⚠ No facts field (acceptable)")
-            
-            if 'summary' in data:
-                print(f"✓ Summary length: {len(data['summary'])} chars")
-            else:
-                print("⚠ No summary field (acceptable)")
-            
-            # Show summary
-            print("\nJSON structure summary:")
-            print(f"  Query: {data.get('query', 'N/A')}")
-            print(f"  Sources: {len(data.get('sources', []))}")
-            print(f"  Facts: {len(data.get('facts', []))}")
-            
-            if 'summary' in data:
-                print(f"  Summary length: {len(data.get('summary', ''))} chars")
-            
-            if data.get('sources'):
-                print("\n  Source titles:")
-                for source in data['sources'][:3]:
-                    title = source.get('title', 'Unknown') if isinstance(source, dict) else str(source)
-                    print(f"    - {title}")
-            
-            print("\n✓ JSON MODE TEST PASSED!")
-            sys.exit(0)
-            
+                print("\n✗ SOME TESTS FAILED")
+                sys.exit(1)
         except Exception as e:
             print(f"\n✗ Test failed: {e}")
             import traceback
@@ -256,15 +127,19 @@ jobs:
             sys.exit(1)
         EOF
         
-        uv run python test_e2e_json.py
+        uv run python test_integration_mocked.py
     
     - name: Test summary
       if: always()
       run: |
         echo "=========================================="
-        echo "TEST SUMMARY"
+        echo "CI TEST SUMMARY"
         echo "=========================================="
-        echo "Unit tests: Completed"
-        echo "E2E Markdown mode: Completed"
-        echo "E2E JSON mode: Completed"
+        echo "✓ Unit tests: Completed (pytest)"
+        echo "✓ Integration tests: Completed (mocked LLM)"
+        echo ""
+        echo "Note: E2E tests with real API calls have been"
+        echo "moved to manual testing to avoid API costs."
+        echo "Run 'python test_e2e_manual.py' locally to"
+        echo "test with real OpenRouter API."
         echo "=========================================="
