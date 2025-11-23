@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from strands import tool
 from .search import WikipediaSearch, WikipediaArticle
 from .citation import WikipediaCitation
@@ -10,6 +10,20 @@ from .citation import WikipediaCitation
 
 # Initialize Wikipedia search instance
 _wiki_search = WikipediaSearch(language="en", user_agent="WikipediaAgent/0.1-Strands")
+
+# Global fact accumulator (will be set by agent)
+_fact_accumulator = None
+
+
+def set_fact_accumulator(accumulator):
+    """Set the global fact accumulator for JSON mode."""
+    global _fact_accumulator
+    _fact_accumulator = accumulator
+
+
+def get_fact_accumulator():
+    """Get the global fact accumulator."""
+    return _fact_accumulator
 
 
 @tool
@@ -148,10 +162,11 @@ def format_mla_citation(title: str) -> str:
 @tool
 def search_and_retrieve_articles_json(query: str, max_articles: int = 3, max_chars_per_article: int = 3000) -> str:
     """
-    Search Wikipedia and retrieve articles in JSON format with structured metadata.
+    Search Wikipedia and retrieve articles for fact extraction.
 
-    This tool is designed for JSON output mode - it returns structured data
-    about sources that can be used for fact extraction and referencing.
+    This tool searches Wikipedia, retrieves article content, and automatically
+    registers the sources with the fact accumulator. After calling this tool,
+    use record_fact() to extract specific information from the articles.
 
     Args:
         query: The search query
@@ -159,7 +174,7 @@ def search_and_retrieve_articles_json(query: str, max_articles: int = 3, max_cha
         max_chars_per_article: Maximum characters per article (default: 3000)
 
     Returns:
-        JSON string with articles and their metadata
+        Formatted string with article content and source IDs for fact extraction
     """
     articles = _wiki_search.search_and_retrieve(
         query=query,
@@ -168,45 +183,78 @@ def search_and_retrieve_articles_json(query: str, max_articles: int = 3, max_cha
     )
 
     if not articles:
-        return json.dumps({
-            "error": f"No Wikipedia articles found for query: {query}",
-            "query": query,
-            "sources": [],
-            "articles_content": []
-        }, indent=2)
+        return f"No Wikipedia articles found for query: {query}"
 
-    # Format articles as structured JSON
-    sources = []
-    articles_content = []
+    # Register sources with fact accumulator
+    accumulator = get_fact_accumulator()
+    
+    result = f"Retrieved {len(articles)} Wikipedia articles:\n\n"
     
     for i, article in enumerate(articles, 1):
         source_id = f"source_{i}"
         
-        # Source metadata
-        sources.append({
-            "id": source_id,
-            "title": article.title,
-            "url": article.url,
-            "last_modified": article.last_modified.strftime('%Y-%m-%d') if article.last_modified else None,
-            "word_count": article.word_count
-        })
+        # Register source with accumulator
+        if accumulator:
+            accumulator.add_source(
+                source_id=source_id,
+                title=article.title,
+                url=article.url,
+                last_modified=article.last_modified.strftime('%Y-%m-%d') if article.last_modified else "Unknown",
+                word_count=article.word_count
+            )
         
-        # Article content for fact extraction
-        articles_content.append({
-            "source_id": source_id,
-            "title": article.title,
-            "summary": article.summary,
-            "content": article.content
-        })
+        # Format article for LLM to read
+        result += f"{'='*80}\n"
+        result += f"SOURCE ID: {source_id}\n"
+        result += f"Article: {article.title}\n"
+        result += f"{'='*80}\n"
+        result += f"URL: {article.url}\n"
+        result += f"Word Count: {article.word_count}\n"
+        result += f"Last Modified: {article.last_modified.strftime('%Y-%m-%d') if article.last_modified else 'Unknown'}\n\n"
+        result += f"Summary:\n{article.summary}\n\n"
+        result += f"Content:\n{article.content}\n\n"
+    
+    result += "\nIMPORTANT: As you read through these articles, use the record_fact() tool to save "
+    result += "important information. Reference the SOURCE ID for each fact you extract.\n"
+    
+    return result
 
-    result = {
-        "query": query,
-        "sources": sources,
-        "articles_content": articles_content,
-        "retrieved_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
 
-    return json.dumps(result, indent=2)
+@tool
+def record_fact(fact: str, source_ids: List[str], category: str) -> str:
+    """
+    Record a fact or insight discovered from Wikipedia articles.
+    
+    Call this tool each time you discover an important piece of information
+    while reading the articles. The system will accumulate all facts and
+    generate structured JSON output at the end.
+    
+    Args:
+        fact: A clear, specific piece of information (be precise and factual)
+        source_ids: List of source IDs that support this fact (e.g., ["source_1", "source_2"])
+        category: Category of the fact - must be one of:
+                  - "definition": Core definitions and explanations
+                  - "history": Historical information, timeline, origins
+                  - "application": Practical uses, real-world applications
+                  - "technical": Technical details, specifications, mechanisms
+                  - "other": Any other relevant information
+    
+    Returns:
+        Confirmation message indicating the fact was recorded
+    
+    Example usage:
+        record_fact(
+            fact="Quantum computing uses quantum bits (qubits) that can exist in superposition.",
+            source_ids=["source_1"],
+            category="definition"
+        )
+    """
+    accumulator = get_fact_accumulator()
+    
+    if not accumulator:
+        return "Error: Fact accumulator not initialized"
+    
+    return accumulator.record_fact(fact, source_ids, category)
 
 
 # Export tools list for easy registration
@@ -222,4 +270,5 @@ wikipedia_tools_json = [
     search_wikipedia,
     get_wikipedia_article,
     search_and_retrieve_articles_json,
+    record_fact,
 ]

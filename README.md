@@ -91,6 +91,14 @@ Works Cited
 #### JSON Format
 Returns structured data with sources and facts, ideal for programmatic use.
 
+**How It Works:** JSON mode uses a **tool-based fact accumulation approach**:
+1. LLM reads Wikipedia articles naturally
+2. As it discovers information, it calls the `record_fact()` tool for each insight
+3. Facts are accumulated in a `FactAccumulator` object
+4. System generates perfect JSON programmatically
+
+This approach guarantees valid JSON, separates concerns (LLM focuses on understanding, system handles formatting), and enables real-time tracking of fact extraction.
+
 ```yaml
 agent:
   output_format: "json"
@@ -124,6 +132,10 @@ Example output:
   "summary": "Quantum computing leverages quantum mechanical phenomena to perform computations. It uses qubits that can exist in superposition, enabling exponential speedup for specific problems."
 }
 ```
+
+**Fact Categories:** `definition`, `history`, `application`, `technical`, `other`
+
+See [JSON_MODE_FEATURE.md](JSON_MODE_FEATURE.md) for complete details on the architecture.
 
 ## Usage
 

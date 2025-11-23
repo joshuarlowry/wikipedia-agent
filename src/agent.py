@@ -8,7 +8,8 @@ from strands.models.litellm import LiteLLMModel
 
 from .config import Config
 from .prompts import PromptManager
-from .wikipedia.tools import wikipedia_tools, wikipedia_tools_json
+from .wikipedia.tools import wikipedia_tools, wikipedia_tools_json, set_fact_accumulator
+from .fact_accumulator import FactAccumulator
 
 
 def create_model_from_config(config: Config):
@@ -49,6 +50,7 @@ class WikipediaAgent:
         self.prompt_manager = PromptManager()
         self.output_format = self.config.output_format
         self.status_callback = None
+        self.fact_accumulator = None
 
         # Create Strands model
         self.model = create_model_from_config(self.config)
@@ -86,6 +88,10 @@ class WikipediaAgent:
         system_prompt = self.prompt_manager.get_system_prompt(mode=self.output_format)
 
         if self.output_format == "json":
+            # Initialize fact accumulator for JSON mode
+            self.fact_accumulator = FactAccumulator(query=question)
+            set_fact_accumulator(self.fact_accumulator)
+            
             # JSON mode instructions
             full_prompt = f"""{system_prompt}
 
@@ -93,14 +99,16 @@ User Question: {question}
 
 Instructions:
 1. Use the search_and_retrieve_articles_json tool to find relevant Wikipedia articles for this question
-2. Analyze the articles carefully and extract specific facts
-3. For each fact, identify which source(s) it came from
-4. Return ONLY valid JSON with the following structure:
-   - query: the user's question
-   - sources: list of source metadata
-   - facts: list of extracted facts with source references
-   - summary: brief overview
-5. Do not include any text before or after the JSON object
+2. Read through the articles carefully
+3. As you discover important information, use the record_fact() tool to save each fact
+4. For each fact, specify:
+   - The fact itself (be specific and precise)
+   - The source_ids that support it (provided in the article headers)
+   - The category (definition, history, application, technical, or other)
+5. Extract as many relevant facts as you can find
+6. When you're done extracting facts, simply indicate you've finished
+
+Remember: Use record_fact() for EACH piece of information you want to save.
 """
         else:
             # MLA mode instructions
@@ -122,6 +130,9 @@ Instructions:
 
     def _sync_query(self, prompt: str) -> str:
         """Execute query synchronously."""
+        # Track fact recording for status updates
+        fact_count = [0]  # Use list to allow modification in closure
+        
         # Create agent with callback to intercept tool calls
         def callback_handler(**kwargs):
             # Detect tool calls
@@ -133,9 +144,15 @@ Instructions:
                     self._emit_status("📥 Retrieving article content...")
                 elif "citation" in tool_name.lower():
                     self._emit_status("📝 Formatting citations...")
+                elif "record_fact" in tool_name.lower():
+                    fact_count[0] += 1
+                    self._emit_status(f"💾 Recording facts... ({fact_count[0]} recorded)")
             # Detect when LLM starts generating
             if "data" in kwargs and kwargs.get("event") == "start":
-                self._emit_status("✍️  Analyzing articles and generating response...")
+                if self.output_format == "json":
+                    self._emit_status("✍️  Reading articles and extracting facts...")
+                else:
+                    self._emit_status("✍️  Analyzing articles and generating response...")
 
         # Select tools based on output format
         tools = wikipedia_tools_json if self.output_format == "json" else wikipedia_tools
@@ -151,7 +168,11 @@ Instructions:
         result = agent_with_callback(prompt)
         self._emit_status("✅ Research complete!")
 
-        # Extract the response text from Strands result
+        # For JSON mode, return the accumulated facts as JSON
+        if self.output_format == "json" and self.fact_accumulator:
+            return self.fact_accumulator.to_json()
+
+        # For MLA mode, extract the response text from Strands result
         # Strands returns an AgentResult object with various attributes
         if hasattr(result, 'output'):
             # The output attribute contains the final response
@@ -167,6 +188,7 @@ Instructions:
             # Use Strands streaming with callback
             accumulated_text = []
             generation_started = False
+            fact_count = [0]  # Use list to allow modification in closure
 
             def callback_handler(**kwargs):
                 nonlocal generation_started
@@ -180,11 +202,17 @@ Instructions:
                         self._emit_status("📥 Retrieving article content...")
                     elif "citation" in tool_name.lower():
                         self._emit_status("📝 Formatting citations...")
+                    elif "record_fact" in tool_name.lower():
+                        fact_count[0] += 1
+                        self._emit_status(f"💾 Recording facts... ({fact_count[0]} recorded)")
                 
                 # Detect when LLM starts generating and collect text
                 if "data" in kwargs:
                     if not generation_started:
-                        self._emit_status("✍️  Analyzing articles and generating response...")
+                        if self.output_format == "json":
+                            self._emit_status("✍️  Reading articles and extracting facts...")
+                        else:
+                            self._emit_status("✍️  Analyzing articles and generating response...")
                         generation_started = True
                     accumulated_text.append(kwargs["data"])
 
@@ -203,18 +231,23 @@ Instructions:
             # Execute the query
             result = streaming_agent(prompt)
 
-            # Yield accumulated text if we got any
-            if accumulated_text:
-                for chunk in accumulated_text:
-                    yield chunk
+            # For JSON mode, yield the accumulated facts as JSON
+            if self.output_format == "json" and self.fact_accumulator:
+                json_output = self.fact_accumulator.to_json()
+                yield json_output
             else:
-                # Fallback: if streaming didn't capture chunks, use the result directly
-                if hasattr(result, 'output'):
-                    yield result.output
-                elif hasattr(result, 'content'):
-                    yield result.content
+                # For MLA mode, yield accumulated text if we got any
+                if accumulated_text:
+                    for chunk in accumulated_text:
+                        yield chunk
                 else:
-                    yield str(result)
+                    # Fallback: if streaming didn't capture chunks, use the result directly
+                    if hasattr(result, 'output'):
+                        yield result.output
+                    elif hasattr(result, 'content'):
+                        yield result.content
+                    else:
+                        yield str(result)
             
             self._emit_status("✅ Research complete!")
 

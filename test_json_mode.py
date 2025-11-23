@@ -8,8 +8,8 @@ from src.config import Config
 
 
 def test_json_mode():
-    """Test that JSON mode returns valid structured data."""
-    print("Testing JSON mode...")
+    """Test that JSON mode returns valid structured data using fact accumulation."""
+    print("Testing JSON mode with fact accumulation...")
     
     # Create config with JSON output
     config = Config("config.yaml")
@@ -25,23 +25,14 @@ def test_json_mode():
     # Test query
     question = "What is Python programming language?"
     print(f"\nQuerying: {question}")
+    print("(The LLM will use record_fact() tool to extract facts)")
     
     try:
         response = agent.query(question, stream=False)
         print(f"\nResponse length: {len(response)} characters")
         
-        # Try to extract and parse JSON
-        json_start = response.find('{')
-        json_end = response.rfind('}') + 1
-        
-        if json_start == -1 or json_end <= json_start:
-            print("⚠ Warning: No JSON object found in response")
-            print("Raw response:")
-            print(response)
-            return False
-        
-        json_str = response[json_start:json_end]
-        data = json.loads(json_str)
+        # The response should now be pure JSON (no extraction needed)
+        data = json.loads(response)
         print("✓ Valid JSON response received")
         
         # Validate structure
@@ -64,6 +55,12 @@ def test_json_mode():
             return False
         print(f"✓ Found {len(data['facts'])} facts")
         
+        # Check that facts were actually extracted
+        if len(data['facts']) == 0:
+            print("⚠ Warning: No facts were extracted")
+            print("This might indicate the LLM didn't use the record_fact() tool")
+            return False
+        
         # Check fact structure
         for i, fact in enumerate(data['facts']):
             required_fact_fields = ['fact', 'source_ids', 'category']
@@ -72,6 +69,14 @@ def test_json_mode():
                     print(f"✗ Fact {i} missing field: {field}")
                     return False
         print("✓ All facts have required fields")
+        
+        # Validate categories
+        valid_categories = ['definition', 'history', 'application', 'technical', 'other']
+        for i, fact in enumerate(data['facts']):
+            if fact['category'] not in valid_categories:
+                print(f"✗ Fact {i} has invalid category: {fact['category']}")
+                return False
+        print("✓ All facts have valid categories")
         
         # Display summary
         print("\n" + "=" * 60)
@@ -87,13 +92,18 @@ def test_json_mode():
             for source in data['sources']:
                 print(f"  - {source.get('title', 'Unknown')}")
         
+        if data.get('facts'):
+            print("\nSample facts:")
+            for fact in data['facts'][:3]:  # Show first 3 facts
+                print(f"  - [{fact['category']}] {fact['fact'][:100]}...")
+        
         print("\n✓ JSON mode test PASSED!")
         return True
         
     except json.JSONDecodeError as e:
         print(f"✗ JSON parsing error: {e}")
         print("\nRaw response:")
-        print(response)
+        print(response[:500])
         return False
     except Exception as e:
         print(f"✗ Error during test: {e}")
