@@ -127,6 +127,31 @@ Example output:
 
 ## Usage
 
+### Web Service (NEW!)
+
+Launch the web interface with REST API:
+
+```bash
+# Using the installed command
+wikipedia-agent-web
+
+# Or with custom config
+wikipedia-agent-web --config custom-config.yaml --port 8000
+
+# Or using Docker (recommended for production)
+docker-compose up -d
+```
+
+Then open your browser to: **http://localhost:8000**
+
+The web service provides:
+- 🌐 **Modern web UI** for interactive queries
+- 🔌 **REST API** with streaming support
+- 📊 **API documentation** at `/docs`
+- 🐳 **Docker support** for easy deployment
+
+See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for complete Docker deployment guide.
+
 ### Terminal UI (Default)
 
 Launch the interactive TUI:

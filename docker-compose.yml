@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Wikipedia Agent Web Service
+  wikipedia-agent-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wikipedia-agent-web
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM Configuration
+      - CONFIG_PATH=/app/config.yaml
+      # OpenRouter API Key (if using OpenRouter)
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    volumes:
+      # Mount config file for easy updates without rebuild
+      - ./config.yaml:/app/config.yaml:ro
+      # Mount .env file if it exists
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - wikipedia-agent-network
+
+  # Optional: Ollama service for local LLM (uncomment to use)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama-server
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   restart: unless-stopped
+  #   networks:
+  #     - wikipedia-agent-network
+  #   # For GPU support (NVIDIA), uncomment below:
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: 1
+  #   #           capabilities: [gpu]
+
+networks:
+  wikipedia-agent-network:
+    driver: bridge
+
+# Uncomment if using Ollama
+# volumes:
+#   ollama-data:

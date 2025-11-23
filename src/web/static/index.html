@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikipedia Research Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 Wikipedia Research Agent</h1>
+            <p class="subtitle">AI-powered Wikipedia research with citations</p>
+            <div class="status-bar">
+                <span class="status-item" id="status">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Initializing...</span>
+                </span>
+                <span class="status-item" id="config-info">
+                    <span id="provider-info">-</span>
+                </span>
+            </div>
+        </header>
+
+        <main>
+            <div class="query-section">
+                <div class="input-group">
+                    <textarea 
+                        id="query-input" 
+                        placeholder="Ask a question about any topic... (e.g., 'What is quantum computing?')"
+                        rows="3"
+                    ></textarea>
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>
+                                <input type="radio" name="output-format" value="mla" checked>
+                                MLA Format
+                            </label>
+                            <label>
+                                <input type="radio" name="output-format" value="json">
+                                JSON Format
+                            </label>
+                            <label>
+                                <input type="checkbox" id="stream-checkbox" checked>
+                                Stream Response
+                            </label>
+                        </div>
+                        <button id="submit-btn" class="btn-primary">
+                            <span class="btn-text">Ask Question</span>
+                            <span class="btn-loading" style="display: none;">
+                                <span class="spinner"></span> Processing...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="response-section">
+                <div class="response-header">
+                    <h2>Response</h2>
+                    <button id="clear-btn" class="btn-secondary">Clear</button>
+                </div>
+                <div id="response-container" class="response-container">
+                    <div class="empty-state">
+                        <p>👋 Welcome! Ask a question to get started.</p>
+                        <p class="hint">Try questions like:</p>
+                        <ul class="examples">
+                            <li>"What is quantum computing?"</li>
+                            <li>"Explain the history of artificial intelligence"</li>
+                            <li>"How does photosynthesis work?"</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>
+                Powered by <strong>Strands Agents</strong> | 
+                <a href="/docs" target="_blank">API Docs</a> | 
+                <a href="https://github.com/yourusername/wikipedia-agent" target="_blank">GitHub</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
