@@ -5,7 +5,41 @@
 The Wikipedia Agent now supports two output formats:
 
 1. **MLA Mode** (default): Returns narrative responses with proper MLA 9th edition citations
-2. **JSON Mode** (new): Returns structured data with sources, facts, and references
+2. **JSON Mode** (new): Returns structured data with sources, facts, and references using a tool-based fact accumulation approach
+
+## Architecture: Tool-Based Fact Accumulation
+
+JSON mode uses an innovative approach that separates concerns:
+
+### How It Works
+
+1. **LLM Reads Documents**: The LLM receives Wikipedia articles and reads through them naturally
+2. **record_fact() Tool**: As the LLM discovers important information, it calls the `record_fact()` tool for each fact
+3. **Fact Accumulator**: The system stores each fact in a `FactAccumulator` object
+4. **Programmatic JSON Generation**: After the LLM finishes, the system generates perfect JSON from accumulated facts
+
+### Benefits of This Approach
+
+✅ **Guaranteed Valid JSON**: We construct JSON programmatically, eliminating parsing errors  
+✅ **Separation of Concerns**: LLM focuses on understanding content, system handles formatting  
+✅ **Real-Time Tracking**: We can monitor facts being extracted as they happen  
+✅ **More Natural**: LLM operates like "I found something interesting, let me record it"  
+✅ **Easier to Extend**: Want to add confidence scores? Just add a parameter to the tool  
+
+### Why Not Ask LLM to Output JSON Directly?
+
+The previous approach forced the LLM to:
+- Read all documents
+- Extract facts
+- Track sources
+- Format everything as perfect JSON
+- All in one response
+
+This is cognitively demanding and error-prone. The LLM had to be both researcher AND data formatter simultaneously, often leading to:
+- Malformed JSON
+- Missing brackets or commas
+- Extra text before/after JSON
+- Parsing failures
 
 ## What Changed
 
@@ -20,17 +54,25 @@ agent:
 ```
 
 ### 2. System Prompts (`prompts/system.yaml`)
-Added a new `system_prompt_json` that instructs the LLM to:
-- Extract specific facts from Wikipedia sources
-- Link each fact to its source(s)
-- Return only valid JSON output
+Updated `system_prompt_json` to instruct the LLM to:
+- Read through Wikipedia articles carefully
+- Use the `record_fact()` tool for each important piece of information
+- Link each fact to its source(s) using source_ids
 - Categorize facts (definition, history, application, technical, other)
+- Focus on extraction, not formatting
 
-### 3. Wikipedia Tools (`src/wikipedia/tools.py`)
-Created new tool `search_and_retrieve_articles_json` that:
-- Returns articles in JSON format instead of formatted text
-- Provides structured metadata for each source
-- Assigns unique IDs to sources for referencing
+### 3. Fact Accumulator (`src/fact_accumulator.py`)
+New module that manages fact collection:
+- `FactAccumulator` class stores facts as they're discovered
+- `Fact` and `Source` dataclasses for type safety
+- `record_fact()` method for LLM to call via tool
+- `to_json()` method for programmatic JSON generation
+
+### 4. Wikipedia Tools (`src/wikipedia/tools.py`)
+Updated and added tools for JSON mode:
+- `search_and_retrieve_articles_json`: Returns articles with SOURCE IDs for referencing
+- `record_fact`: New tool that LLM calls to save each discovered fact
+- Tools automatically register sources with the fact accumulator
 - Exports separate tool list `wikipedia_tools_json` for JSON mode
 
 ### 4. Configuration Manager (`src/config.py`)
@@ -38,12 +80,18 @@ Added `output_format` property to access the configured mode
 
 ### 5. Agent (`src/agent.py`)
 - Detects output format from configuration
+- Initializes `FactAccumulator` for JSON mode queries
 - Selects appropriate tools (MLA or JSON) based on mode
 - Uses different system prompts for each mode
-- Provides mode-specific instructions to the LLM
+- Returns accumulated facts as JSON for JSON mode
+- Tracks fact recording progress in status updates
 
-### 6. Documentation (`README.md`)
-Added comprehensive documentation with:
+### 6. Configuration Manager (`src/config.py`)
+- No changes needed - `output_format` property already supported
+
+### 7. Documentation (`README.md`)
+Updated comprehensive documentation with:
+- Tool-based fact accumulation architecture
 - Feature description
 - Configuration examples
 - Output format examples
@@ -195,32 +243,42 @@ python test_json_mode.py
 
 ## Implementation Details
 
+### Workflow in JSON Mode
+
+1. **Initialization**: When a query starts in JSON mode, `WikipediaAgent` creates a new `FactAccumulator` and registers it globally
+2. **Article Retrieval**: `search_and_retrieve_articles_json` tool retrieves Wikipedia articles and automatically registers their metadata as sources
+3. **Fact Extraction**: As the LLM reads articles, it calls `record_fact(fact, source_ids, category)` for each insight
+4. **Accumulation**: Each call to `record_fact()` stores the fact in the accumulator
+5. **JSON Generation**: After the LLM finishes, the agent calls `fact_accumulator.to_json()` to get perfect JSON
+
 ### Tool Selection
 The agent automatically selects the appropriate tool set based on `output_format`:
 - **MLA mode**: Uses `search_and_retrieve_articles` (returns formatted text with MLA citations)
-- **JSON mode**: Uses `search_and_retrieve_articles_json` (returns structured JSON)
+- **JSON mode**: Uses `search_and_retrieve_articles_json` + `record_fact` (tool-based extraction)
 
 ### Prompt Engineering
 Different system prompts guide the LLM's behavior:
 - **MLA prompt**: Emphasizes narrative writing with proper in-text citations
-- **JSON prompt**: Emphasizes fact extraction and structured data output
+- **JSON prompt**: Instructs LLM to use `record_fact()` tool as it discovers information
 
 ### Streaming Support
 Both modes support streaming responses. For JSON mode:
-- Partial JSON chunks are streamed as the LLM generates them
-- Client should accumulate chunks and parse once complete
+- The complete JSON is yielded at the end (since it's generated programmatically)
+- Status updates show fact accumulation progress in real-time
+- Clients receive the final JSON as a single chunk
 
 ## Future Enhancements
 
-Potential improvements:
-1. Add more fact categories (statistics, quotes, dates, people, places)
-2. Include confidence scores for facts
-3. Add direct quote extraction with page references
-4. Support multiple citation formats (APA, Chicago, etc.)
-5. Add validation for JSON schema
-6. Include source relevance scoring
-7. Add fact deduplication across sources
-8. Extract relationships between facts
+Potential improvements enabled by the tool-based approach:
+1. **Enhanced Fact Metadata**: Add confidence scores, timestamps, or importance ratings to `record_fact()`
+2. **More Categories**: Add statistics, quotes, dates, people, places as fact categories
+3. **Quote Extraction**: Add `record_quote()` tool for verbatim quotes with page numbers
+4. **Fact Relationships**: Add `link_facts()` tool to connect related facts
+5. **Real-time Validation**: Validate facts as they're recorded, not at the end
+6. **Fact Suggestions**: LLM could ask for clarification using a `clarify_fact()` tool
+7. **Deduplication**: Automatically merge similar facts from different sources
+8. **Source Relevance**: Track which sources were most useful via fact counts
+9. **LLM-Generated Summary**: Add `generate_summary()` tool call at the end instead of automatic summary
 
 ## Migration Notes
 

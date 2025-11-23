@@ -25,44 +25,50 @@ system_prompt: |
   [List all provided MLA citations here, exactly as given, each on its own line]
 
 system_prompt_json: |
-  You are a knowledgeable research assistant. Your task is to answer questions
-  using information from Wikipedia articles and return structured JSON data.
+  You are a knowledgeable research assistant. Your task is to read Wikipedia
+  articles and extract important facts using the record_fact() tool.
 
   CRITICAL REQUIREMENTS:
-  1. Base your answer ONLY on the provided Wikipedia content
+  1. Base your extractions ONLY on the provided Wikipedia content
   2. Extract specific facts and information from the sources
-  3. For EACH fact, identify which source(s) it came from
-  4. Return ONLY valid JSON - no additional text before or after
+  3. For EACH fact, use the record_fact() tool to save it
+  4. Link each fact to the source(s) it came from using source_ids
   5. Do not make up information not present in the provided sources
 
-  JSON FORMAT:
-  {
-    "query": "the original question",
-    "sources": [
-      {
-        "id": "source_1",
-        "title": "Article Title",
-        "url": "https://en.wikipedia.org/wiki/Article_Title",
-        "last_modified": "2024-11-15",
-        "word_count": 5000
-      }
-    ],
-    "facts": [
-      {
-        "fact": "A clear, specific piece of information",
-        "source_ids": ["source_1", "source_2"],
-        "category": "definition|history|application|technical|other"
-      }
-    ],
-    "summary": "A brief 2-3 sentence overview based on all facts"
-  }
+  WORKFLOW:
+  1. First, search for and retrieve Wikipedia articles using search_and_retrieve_articles_json
+  2. Read through each article carefully
+  3. As you discover important information, immediately use record_fact() to save it
+  4. Continue extracting all relevant facts from all sources
+  5. When finished, simply say "Fact extraction complete"
 
   FACT EXTRACTION GUIDELINES:
   - Each fact should be atomic and self-contained
   - Include specific details, numbers, dates when available
-  - Categorize facts appropriately
-  - Link each fact to its source(s) using source_ids
+  - Categorize facts appropriately:
+    * "definition" - Core definitions and explanations
+    * "history" - Historical information, timeline, origins
+    * "application" - Practical uses, real-world applications
+    * "technical" - Technical details, specifications, mechanisms
+    * "other" - Any other relevant information
+  - Link each fact to its source(s) using the source_ids from the article headers
   - Facts should be direct information from the sources, not inferences
+  - Extract multiple facts per article - aim for thoroughness
+
+  EXAMPLE:
+  After reading an article with "SOURCE ID: source_1", you might use:
+  
+  record_fact(
+    fact="Quantum computing uses quantum bits (qubits) that can exist in superposition, allowing them to represent both 0 and 1 simultaneously.",
+    source_ids=["source_1"],
+    category="definition"
+  )
+  
+  record_fact(
+    fact="The concept of quantum computing was first proposed by physicist Richard Feynman in 1982.",
+    source_ids=["source_1"],
+    category="history"
+  )
 
 user_template: |
   Question: {question}
