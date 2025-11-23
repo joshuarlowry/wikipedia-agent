@@ -36,7 +36,7 @@ htmlcov/
 *.cover
 
 # Documentation
-*.md
+# README.md is needed for package build, so we explicitly exclude other markdown files
 docs/
 CHANGES_SUMMARY.md
 MIGRATION_SUMMARY.md
@@ -45,6 +45,11 @@ OUTPUT_COMPARISON_EXAMPLE.md
 JSON_MODE_FEATURE.md
 QUICKSTART.md
 TESTING.md
+DOCKER_DEPLOYMENT.md
+IMPLEMENTATION_COMPLETE.md
+WEB_SERVICE_OVERVIEW.md
+WEB_SERVICE_QUICKSTART.md
+WEB_SERVICE_SUMMARY.md
 
 # CI/CD
 .github/

@@ -95,12 +95,20 @@ async def health_check():
     """Health check endpoint."""
     try:
         agent = get_agent()
-        config = _config or Config()
+        config = _config or Config(os.getenv("CONFIG_PATH", "config.yaml"))
+        
+        # Get model name based on provider
+        if config.llm_provider == "ollama":
+            model = config.ollama_config.get("model", "unknown")
+        elif config.llm_provider == "openrouter":
+            model = config.openrouter_config.get("model", "unknown")
+        else:
+            model = "unknown"
         
         return HealthResponse(
             status="healthy",
             provider=config.llm_provider,
-            model=config.llm_config.get("model", "unknown"),
+            model=model,
             ready=agent.is_ready,
         )
     except Exception as e:
@@ -190,10 +198,19 @@ async def query_endpoint(request: QueryRequest):
 async def get_config():
     """Get current configuration (sanitized)."""
     try:
-        config = _config or Config()
+        config = _config or Config(os.getenv("CONFIG_PATH", "config.yaml"))
+        
+        # Get model name based on provider
+        if config.llm_provider == "ollama":
+            model = config.ollama_config.get("model", "unknown")
+        elif config.llm_provider == "openrouter":
+            model = config.openrouter_config.get("model", "unknown")
+        else:
+            model = "unknown"
+        
         return {
             "provider": config.llm_provider,
-            "model": config.llm_config.get("model", "unknown"),
+            "model": model,
             "output_format": config.output_format,
             "max_articles": config.wikipedia_config.get("max_articles", 3),
             "language": config.wikipedia_config.get("language", "en"),

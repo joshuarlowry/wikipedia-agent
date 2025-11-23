@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY pyproject.toml uv.lock* ./
+# Copy dependency files and README (needed for package build)
+COPY pyproject.toml uv.lock* README.md ./
 
 # Install uv for faster dependency management
 RUN pip install --no-cache-dir uv
@@ -38,7 +38,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY src/ ./src/
 COPY prompts/ ./prompts/
-COPY config.yaml .env.example ./
+COPY config.yaml ./
+# Copy .env.example (optional file, will fail silently if missing)
+COPY .env.example ./
 
 # Create a non-root user
 RUN useradd -m -u 1000 appuser && \

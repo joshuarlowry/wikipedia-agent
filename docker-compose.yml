@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     container_name: wikipedia-agent-web
     ports:
-      - "8000:8000"
+      - "8001:8000"  # Changed external port to 8001 to avoid conflict with paperless-ngx on 8000
     environment:
       # LLM Configuration
       - CONFIG_PATH=/app/config.yaml
