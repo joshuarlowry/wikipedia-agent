@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+
+# Documentation
+*.md
+docs/
+CHANGES_SUMMARY.md
+MIGRATION_SUMMARY.md
+MIGRATION_TO_STRANDS.md
+OUTPUT_COMPARISON_EXAMPLE.md
+JSON_MODE_FEATURE.md
+QUICKSTART.md
+TESTING.md
+
+# CI/CD
+.github/
+
+# Test files
+test*.py
+tests/
+*.txt
+!requirements.txt
+
+# Scripts
+*.sh
+
+# Environment
+.env
+.env.local
+
+# Temporary files
+*.log
+*.tmp
