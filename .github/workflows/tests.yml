@@ -158,19 +158,48 @@ jobs:
             
             print(f"✓ Received response: {len(response)} characters")
             
-            # Parse JSON
+            # Parse JSON - try to extract valid JSON robustly
             json_start = response.find('{')
-            json_end = response.rfind('}') + 1
             
-            if json_start == -1 or json_end <= json_start:
+            if json_start == -1:
                 print("✗ No JSON object found in response")
                 print("Response preview:")
                 print(response[:500])
                 sys.exit(1)
             
+            # Try to parse JSON by finding balanced braces
+            data = None
+            brace_count = 0
+            json_end = json_start
+            
+            for i in range(json_start, len(response)):
+                if response[i] == '{':
+                    brace_count += 1
+                elif response[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        json_end = i + 1
+                        break
+            
+            if brace_count != 0:
+                print("✗ Unbalanced braces in JSON response")
+                print("Response preview:")
+                print(response[:1000])
+                sys.exit(1)
+            
             json_str = response[json_start:json_end]
-            data = json.loads(json_str)
-            print("✓ Valid JSON response")
+            
+            try:
+                data = json.loads(json_str)
+                print("✓ Valid JSON response")
+            except json.JSONDecodeError as e:
+                print(f"✗ JSON parse error: {e}")
+                print(f"JSON string length: {len(json_str)}")
+                print("First 500 chars of JSON:")
+                print(json_str[:500])
+                print("\nLast 200 chars of JSON:")
+                print(json_str[-200:])
+                sys.exit(1)
             
             # Validate structure - check for key fields but be lenient
             print(f"✓ JSON fields present: {list(data.keys())}")
@@ -220,11 +249,6 @@ jobs:
             print("\n✓ JSON MODE TEST PASSED!")
             sys.exit(0)
             
-        except json.JSONDecodeError as e:
-            print(f"\n✗ JSON parsing error: {e}")
-            print("\nResponse preview:")
-            print(response[:500] if 'response' in locals() else "No response")
-            sys.exit(1)
         except Exception as e:
             print(f"\n✗ Test failed: {e}")
             import traceback
