@@ -65,31 +65,37 @@ def test_query_with_mock():
     """Test query with mocked response."""
     print("\n3. Testing query with mocked response...")
     
-    with patch('src.agent.create_model_from_config') as mock_create_model:
+    mock_response = """
+    Python is a high-level programming language ("Python (programming language)").
+    It was created by Guido van Rossum in 1991 ("Python (programming language)").
+    
+    Works Cited
+    "Python (programming Language)." Wikipedia, Wikimedia Foundation, 
+        en.wikipedia.org/wiki/Python_(programming_language). Accessed 22 Nov. 2025.
+    """
+    
+    # Mock the Agent class since _sync_query creates a new Agent instance
+    with patch('src.agent.create_model_from_config') as mock_create_model, \
+         patch('src.agent.Agent') as MockAgent:
+        
         mock_model = Mock()
         mock_create_model.return_value = mock_model
+        
+        # Mock the Agent instance and its __call__ method
+        mock_agent_instance = Mock()
+        mock_agent_instance.return_value = Mock(output=mock_response)
+        MockAgent.return_value = mock_agent_instance
         
         config = Config("config.yaml")
         agent = WikipediaAgent(config)
         
-        # Mock the agent's query method
-        mock_response = """
-        Python is a high-level programming language ("Python (programming language)").
-        It was created by Guido van Rossum in 1991 ("Python (programming language)").
+        response = agent.query("What is Python?", stream=False)
         
-        Works Cited
-        "Python (programming Language)." Wikipedia, Wikimedia Foundation, 
-            en.wikipedia.org/wiki/Python_(programming_language). Accessed 22 Nov. 2025.
-        """
-        
-        with patch.object(agent.agent, '__call__', return_value=Mock(output=mock_response)):
-            response = agent.query("What is Python?", stream=False)
-            
-            assert len(response) > 50
-            assert "Python" in response
-            assert "Works Cited" in response
-            print("   ✓ Query executed with mocked response")
-            print(f"   ✓ Response length: {len(response)} chars")
+        assert len(response) > 50
+        assert "Python" in response
+        assert "Works Cited" in response
+        print("   ✓ Query executed with mocked response")
+        print(f"   ✓ Response length: {len(response)} chars")
     return True
 
 
