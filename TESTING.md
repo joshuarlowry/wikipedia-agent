@@ -14,13 +14,16 @@ python test_integration_mocked.py
 
 **What's tested:**
 - ✅ Unit tests with mocked responses
-- ✅ Agent initialization
+- ✅ Agent initialization (no credentials required)
 - ✅ Configuration loading
 - ✅ Output format switching (MLA/JSON)
 - ✅ Basic query flow with mocked LLM
+- ✅ Wikipedia tools availability
 
-**Cost:** $0 (no API calls)
+**Cost:** $0 (no API calls, no credentials needed)
 **Time:** ~30 seconds
+
+**Note:** All model initialization and API calls are mocked, so you can run these tests without configuring any LLM provider or API keys!
 
 ## Manual E2E Tests (Real API Calls)
 
