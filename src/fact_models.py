@@ -51,6 +51,14 @@ class RelationModel(BaseModel):
     source_ids: List[str]
 
 
+class IterationModel(BaseModel):
+    """Iterative search results for a given query."""
+
+    query: str
+    summary: str
+    sources: List[SourceModel]
+
+
 class FactOutput(BaseModel):
     """
     Final structured output for JSON mode.
@@ -66,6 +74,7 @@ class FactOutput(BaseModel):
             "events": [EntityModel, ...],
             "ideas": [EntityModel, ...],
             "relations": [RelationModel, ...],
+            "iterations": [IterationModel, ...],
             "summary": str
         }
     """
@@ -73,11 +82,12 @@ class FactOutput(BaseModel):
     query: str
     sources: List[SourceModel]
     facts: List[FactModel]
-    people: List[EntityModel]
-    places: List[EntityModel]
-    events: List[EntityModel]
-    ideas: List[EntityModel]
-    relations: List[RelationModel]
+    people: List[EntityModel] = Field(default_factory=list)
+    places: List[EntityModel] = Field(default_factory=list)
+    events: List[EntityModel] = Field(default_factory=list)
+    ideas: List[EntityModel] = Field(default_factory=list)
+    relations: List[RelationModel] = Field(default_factory=list)
+    iterations: List[IterationModel] = Field(default_factory=list)
     summary: Optional[str] = None
 
 

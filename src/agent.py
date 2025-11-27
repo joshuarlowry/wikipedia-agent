@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import Iterator, Optional, Callable, Union
+from typing import Callable, Iterator, List, Optional, Union
 
 from strands import Agent
 from strands.models.litellm import LiteLLMModel
@@ -10,12 +10,13 @@ from strands.models.ollama import OllamaModel
 from strands.types.exceptions import StructuredOutputException
 
 from .config import Config
-from .fact_models import FactOutput
+from .fact_models import FactOutput, SourceModel, IterationModel
 from .prompts import PromptManager
 from .wikipedia.tools import (
     wikipedia_tools,
     wikipedia_tools_json,
 )
+from .wikipedia.search import WikipediaSearch
 
 
 def create_model_from_config(config: Config):
@@ -67,6 +68,10 @@ class WikipediaAgent:
         self.agent = Agent(
             model=self.model,
             tools=tools,
+        )
+        self.wiki_search = WikipediaSearch(
+            language=self.config.wikipedia_config.get("language", "en"),
+            user_agent="WikipediaAgent/iterative",
         )
 
     def set_status_callback(self, callback: Callable[[str], None]):
@@ -169,7 +174,9 @@ Instructions:
                 self._emit_status("⚠️ Failed to validate structured JSON output.")
                 raise StructuredOutputException("LLM did not return structured FactOutput data.")
 
-            return json.dumps(result.structured_output.model_dump(), indent=2)
+            iteration_entries = self._build_iteration_entries(result.structured_output)
+            extended_output = result.structured_output.model_copy(update={"iterations": iteration_entries})
+            return json.dumps(extended_output.model_dump(), indent=2)
 
         # Non-JSON (MLA) mode: standard Strands text behavior
         result = agent_with_callback(prompt)
@@ -191,7 +198,7 @@ Instructions:
 
             def callback_handler(**kwargs):
                 nonlocal generation_started
-
+                
                 if "tool_name" in kwargs:
                     tool_name = kwargs["tool_name"]
                     if "search" in tool_name.lower():
@@ -200,7 +207,7 @@ Instructions:
                         self._emit_status("📥 Retrieving article content...")
                     elif "citation" in tool_name.lower():
                         self._emit_status("📝 Formatting citations...")
-
+                
                 if "data" in kwargs:
                     if not generation_started:
                         if self.output_format == "json":
@@ -230,7 +237,12 @@ Instructions:
                     self._emit_status("⚠️ Failed to validate structured JSON output.")
                     raise StructuredOutputException("LLM did not return structured FactOutput data.")
 
-                json_output = json.dumps(result.structured_output.model_dump(), indent=2)
+                iteration_entries = self._build_iteration_entries(result.structured_output)
+                extended_output = result.structured_output.model_copy(
+                    update={"iterations": iteration_entries}
+                )
+
+                json_output = json.dumps(extended_output.model_dump(), indent=2)
                 self._emit_status("✅ Research complete!")
                 yield json_output
                 return
@@ -252,6 +264,47 @@ Instructions:
 
         except Exception as e:
             yield f"Error during streaming: {e}"
+
+    def _build_iteration_entries(self, fact_output: FactOutput) -> List[IterationModel]:
+        """Gather extra research iterations for discovered entities."""
+        entity_names = []
+        for attr in ("people", "places", "events", "ideas"):
+            entity_list = getattr(fact_output, attr, []) or []
+            entity_names.extend(entity.name for entity in entity_list if entity.name)
+
+        iterations: List[IterationModel] = []
+        seen: set[str] = set()
+        max_iterations = 4
+
+        for name in entity_names:
+            if not name or len(iterations) >= max_iterations or name in seen:
+                continue
+            seen.add(name)
+            articles = self.wiki_search.search_and_retrieve(
+                name,
+                max_articles=1,
+                max_chars_per_article=1500,
+            )
+            if not articles:
+                continue
+            article = articles[0]
+            source_model = SourceModel(
+                id=f"iteration_{len(iterations)+1}",
+                title=article.title,
+                url=article.url,
+                last_modified=article.last_modified.isoformat() if article.last_modified else "Unknown",
+                word_count=article.word_count,
+            )
+            summary_text = article.summary or article.content[:256]
+            iterations.append(
+                IterationModel(
+                    query=name,
+                    summary=summary_text,
+                    sources=[source_model],
+                )
+            )
+
+        return iterations
 
     @property
     def is_ready(self) -> bool:
