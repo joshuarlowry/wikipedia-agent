@@ -1,5 +1,6 @@
 """Pydantic models for structured fact output in JSON mode."""
 
+from enum import Enum
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -23,23 +24,60 @@ class FactModel(BaseModel):
     category: Literal["definition", "history", "application", "technical", "other"]
 
 
+class EntityType(str, Enum):
+    person = "person"
+    place = "place"
+    event = "event"
+    idea = "idea"
+
+
+class EntityModel(BaseModel):
+    """Catalog of discovered people, places, events, or ideas."""
+
+    id: str
+    name: str
+    description: str
+    type: EntityType
+    source_ids: List[str]
+
+
+class RelationModel(BaseModel):
+    """Relationships between cataloged entities."""
+
+    from_entity: str
+    to_entity: str
+    description: str
+    date: Optional[str] = None
+    source_ids: List[str]
+
+
 class FactOutput(BaseModel):
     """
     Final structured output for JSON mode.
 
     The JSON must include:
 
-    {
-        "query": str,
-        "sources": [SourceModel, ...],
-        "facts": [FactModel, ...],
-        "summary": str
-    }
+        {
+            "query": str,
+            "sources": [SourceModel, ...],
+            "facts": [FactModel, ...],
+            "people": [EntityModel, ...],
+            "places": [EntityModel, ...],
+            "events": [EntityModel, ...],
+            "ideas": [EntityModel, ...],
+            "relations": [RelationModel, ...],
+            "summary": str
+        }
     """
 
     query: str
     sources: List[SourceModel]
     facts: List[FactModel]
+    people: List[EntityModel]
+    places: List[EntityModel]
+    events: List[EntityModel]
+    ideas: List[EntityModel]
+    relations: List[RelationModel]
     summary: Optional[str] = None
 
 

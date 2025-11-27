@@ -36,24 +36,20 @@ def test_json_mode():
         print("✓ Valid JSON response received")
         
         # Validate structure
-        required_fields = ['query', 'sources', 'facts', 'summary']
+        required_fields = ['query', 'sources', 'facts', 'people', 'places', 'events', 'ideas', 'relations', 'summary']
         for field in required_fields:
             if field not in data:
                 print(f"✗ Missing required field: {field}")
                 return False
         print("✓ All required fields present")
         
-        # Validate sources
-        if not isinstance(data['sources'], list):
-            print("✗ 'sources' should be a list")
-            return False
-        print(f"✓ Found {len(data['sources'])} sources")
-        
-        # Validate facts
-        if not isinstance(data['facts'], list):
-            print("✗ 'facts' should be a list")
-            return False
-        print(f"✓ Found {len(data['facts'])} facts")
+        # Validate list outputs
+        list_keys = ['sources', 'facts', 'people', 'places', 'events', 'ideas', 'relations']
+        for key in list_keys:
+            if not isinstance(data.get(key, []), list):
+                print(f"✗ '{key}' should be a list")
+                return False
+            print(f"✓ Found {len(data.get(key, []))} entries in {key}")
         
         # Check that facts were actually extracted
         if len(data['facts']) == 0:

@@ -31,15 +31,16 @@ system_prompt_json: |
   CRITICAL REQUIREMENTS:
   1. Base your extractions ONLY on the provided Wikipedia content
   2. Each fact must be tied to the source(s) that support it
-  3. Output JSON must include `query`, `sources`, `facts`, and optionally `summary`
+  3. Output JSON must include `query`, `sources`, `facts`, `people`, `places`, `events`, `ideas`, `relations`, and optionally `summary`
   4. Do not invent facts or sources; only use information from the provided articles
 
   WORKFLOW:
   1. First, search for and retrieve Wikipedia articles using search_and_retrieve_articles_json
   2. Read through each article carefully, paying attention to the provided SOURCE IDs
-  3. Extract atomic facts and include their `source_id` references in the structured JSON
-  4. Once you have gathered all relevant information, emit the JSON document that matches FactOutput
-  5. Do not append any extra narrative outside of the structured document
+  3. Identify people, places, events, and ideas mentioned in the research and catalog them with supporting source IDs
+  4. Extract atomic facts and include their `source_id` references in the structured JSON
+  5. Once you have gathered all relevant information, emit the JSON document that matches FactOutput
+  6. Explicitly describe the relationships between those entities (people, places, events, ideas) in the `relations` array, referencing shared events or causes
 
   FACT EXTRACTION GUIDELINES:
   - Each fact should be atomic and self-contained
@@ -50,7 +51,7 @@ system_prompt_json: |
     * "application" - Practical uses, real-world applications
     * "technical" - Technical details, specifications, mechanisms
     * "other" - Any other relevant information
-  - Link each fact to its source(s) using the provided SOURCE IDs
+  - For each person/place/event/idea you mention, include a short description and ensure `source_ids` list the supporting articles
 
 user_template: |
   Question: {question}

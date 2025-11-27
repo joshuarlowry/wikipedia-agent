@@ -1,10 +1,12 @@
 # JSON Output Mode
 
-The JSON output mode now relies entirely on Strands' structured output support via the `FactOutput` Pydantic model. Instead of managing our own fact accumulator, the agent simply asks the LLM to emit a validated JSON document that includes:
+JSON mode now relies on Strands' `FactOutput` structured-output model to emit a richer response catalog. Each JSON document includes:
 
 1. `query` – the original user question.
-2. `sources` – a list of articles with `id`, `title`, `url`, `last_modified`, and `word_count`.
-3. `facts` – an array of extracted facts, each with the `fact` text, supporting `source_ids`, and a `category` (definition/history/application/technical/other).
-4. `summary` – an optional final synopsis of the findings.
+2. `sources` – a list of articles with metadata (`id`, `title`, `url`, `last_modified`, `word_count`).
+3. `facts` – atomic facts, each with `fact`, `source_ids`, and a `category` (`definition`, `history`, `application`, `technical`, `other`).
+4. `people`, `places`, `events`, `ideas` – cataloged entities that summarize the named people, locations, historical events, and abstract ideas uncovered during research, each linked back to source IDs.
+5. `relations` – explicit relationships between those entities (e.g., "Founding Fathers" ↔ "Declaration of Independence" in 1776) with optional dates and supporting sources.
+6. `summary` – an optional synopsis that ties the structured insights together.
 
-The JSON prompt clearly instructs the model to follow this schema, and the agent passes `structured_output_model=FactOutput` so Strands enforces the contract. If the LLM fails to obey (e.g., it doesn't produce valid JSON), the request surface raises an error rather than silently falling back to a secondary pipeline. This keeps the public API’s promise of guaranteed, type-safe JSON intact while simplifying the internal tooling.
+The JSON prompt now instructs the LLM to populate those sections, including identifying the people/places/events/ideas and spelling out how they’re connected. The agent passes `structured_output_model=FactOutput` for both synchronous and streaming queries so Strands enforces the schema; if the LLM doesn’t follow the contract, the request surfaces a clear error instead of falling back to auxiliary data. This guarantees valid, auditable JSON without the legacy fact accumulator.

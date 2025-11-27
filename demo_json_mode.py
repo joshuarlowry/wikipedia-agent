@@ -39,7 +39,7 @@ def demo_json_mode():
     print("The LLM will:")
     print("1. Search for Wikipedia articles")
     print("2. Read through the content")
-    print("3. Produce a structured JSON document matching FactOutput")
+    print("3. Produce a structured JSON document matching FactOutput with cataloged entities")
     print("4. The agent validates the JSON before returning it\n")
     
     response = agent.query(question, stream=False)
@@ -91,9 +91,9 @@ if __name__ == "__main__":
     print("=" * 80)
     print("\nThis demo shows the difference between MLA and JSON output modes.")
     print("\nJSON mode now uses Strands' structured FactOutput contract:")
-    print("- The LLM reads articles and emits the required fields")
+    print("- The LLM reads articles and emits the required fields (facts, people, places, events, ideas, relations)")
     print("- The agent enforces FactOutput via structured_output_model")
-    print("- The response is validated JSON with sources, facts, and summary")
+    print("- The response is validated JSON that catalogs entities and their relationships")
     print("\nMake sure you have configured your LLM provider in config.yaml\n")
     
     try:

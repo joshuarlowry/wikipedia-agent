@@ -99,11 +99,12 @@ Works Cited
 #### JSON Format
 Returns structured data with sources and facts, ideal for programmatic use.
 
-**How It Works:** JSON mode now uses **Strands Structured Output** directly with the `FactOutput` model:
+**How It Works:** JSON mode now uses **Strands Structured Output** directly with the `FactOutput` model and an expanded catalog:
 1. LLM reads the retrieved Wikipedia articles and constructs a JSON document that matches `FactOutput`
-2. Each fact includes the supporting sources and a predefined category (definition, history, application, technical, other)
-3. The agent validates the structured output, ensuring every response conforms to the documented schema
-4. The final response is a guaranteed, type-safe JSON object ready for programmatic consumption
+2. Facts are grouped into `facts`, and the catalog includes explicit `people`, `places`, `events`, and `ideas`, each linked to their sources
+3. Relationships between those entities (e.g., founding fathers connected via the Declaration of Independence) are exposed in the `relations` array with optional dates and supporting sources
+4. The agent validates the structured output, ensuring every response conforms to the documented schema
+5. The final response is a guaranteed, type-safe JSON object ready for programmatic consumption
 
 This approach keeps the LLM focused on signal extraction while Strands handles formatting, validation, and error reporting.
 
