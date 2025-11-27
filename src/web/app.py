@@ -4,8 +4,9 @@ import asyncio
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
+import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +24,10 @@ class QueryRequest(BaseModel):
     query: str
     stream: bool = True
     output_format: Optional[str] = None  # "mla" or "json"
+    # Optional provider override ("ollama" or "openrouter")
+    provider: Optional[str] = None
+    # Optional OpenRouter model override (only used when provider == \"openrouter\")
+    model: Optional[str] = None
 
 
 class QueryResponse(BaseModel):
@@ -37,6 +42,24 @@ class HealthResponse(BaseModel):
     provider: str
     model: str
     ready: bool
+    default_ollama_model: Optional[str] = None
+    default_openrouter_model: Optional[str] = None
+
+
+class ModelInfo(BaseModel):
+    """Model metadata exposed to the web UI."""
+    id: str
+    name: str
+    provider: str
+    prompt_price_per_million: float
+    completion_price_per_million: float
+    context_length: Optional[int] = None
+
+
+class OllamaModelInfo(BaseModel):
+    """Ollama model metadata exposed to the web UI."""
+    name: str
+    model: str
 
 
 # Initialize FastAPI app
@@ -110,6 +133,8 @@ async def health_check():
             provider=config.llm_provider,
             model=model,
             ready=agent.is_ready,
+            default_ollama_model=config.ollama_config.get("model"),
+            default_openrouter_model=config.openrouter_config.get("model"),
         )
     except Exception as e:
         return JSONResponse(
@@ -132,13 +157,43 @@ async def query_endpoint(request: QueryRequest):
     Supports both streaming and non-streaming responses.
     """
     try:
+        # Start from the base config used to create the global agent
+        base_config_path = os.getenv("CONFIG_PATH", "config.yaml")
+        config = _config or Config(base_config_path)
         agent = get_agent()
-        
-        # Override output format if specified in request
-        if request.output_format:
-            # Create a temporary agent with the requested format
-            temp_config = Config()
-            temp_config._config["agent"]["output_format"] = request.output_format
+
+        # If the client requested a different output format, provider, and/or model,
+        # create a temporary agent with an overridden config.
+        if request.output_format or request.provider or request.model:
+            temp_config = Config(base_config_path)
+
+            # Ensure nested structures exist before mutation
+            temp_config._config.setdefault("agent", {})
+            temp_config._config.setdefault("llm", {})
+
+            # Override provider if specified
+            if request.provider:
+                temp_config._config["llm"]["provider"] = request.provider
+
+            # Override output format if specified
+            if request.output_format:
+                temp_config._config["agent"]["output_format"] = request.output_format
+
+            # Override model for the effective provider if specified
+            if request.model:
+                effective_provider = request.provider or temp_config.llm_provider
+                if effective_provider == "openrouter":
+                    temp_config._config["llm"].setdefault("openrouter", {})
+                    temp_config._config["llm"]["openrouter"]["model"] = request.model
+                elif effective_provider == "ollama":
+                    temp_config._config["llm"].setdefault("ollama", {})
+                    temp_config._config["llm"]["ollama"]["model"] = request.model
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Model selection is not supported for provider '{effective_provider}'.",
+                    )
+
             agent = WikipediaAgent(temp_config)
         
         if not agent.is_ready:
@@ -217,6 +272,148 @@ async def get_config():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting config: {str(e)}")
+
+
+def _fetch_openrouter_models(config: Config) -> List[ModelInfo]:
+    """Fetch a curated list of OpenRouter models with current pricing."""
+    openrouter_cfg = config.openrouter_config
+    api_key = openrouter_cfg.get("api_key", os.getenv("OPENROUTER_API_KEY", ""))
+    base_url = openrouter_cfg.get("base_url", "https://openrouter.ai/api/v1").rstrip("/")
+
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="OpenRouter API key is not configured. Set OPENROUTER_API_KEY or llm.openrouter.api_key.",
+        )
+
+    url = f"{base_url}/models"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/wikipedia-agent",
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch models from OpenRouter: {e}",
+        )
+
+    configured_allowed = config.openrouter_allowed_models
+    if configured_allowed:
+        allowed_ids = set(configured_allowed)
+    else:
+        allowed_ids = {
+            "anthropic/claude-3.5-sonnet",
+            "anthropic/claude-3.5-haiku",
+        }
+    default_model_id = openrouter_cfg.get("model")
+    if default_model_id:
+        allowed_ids.add(default_model_id)
+
+    models: List[ModelInfo] = []
+    for item in data.get("data", []):
+        model_id = item.get("id", "")
+        if model_id not in allowed_ids:
+            continue
+
+        pricing = item.get("pricing", {}) or {}
+        architecture = item.get("architecture", {}) or {}
+
+        try:
+            prompt_price = float(pricing.get("prompt", 0.0)) * 1_000_000
+            completion_price = float(pricing.get("completion", 0.0)) * 1_000_000
+        except (TypeError, ValueError):
+            # Skip models with malformed pricing
+            continue
+
+        models.append(
+            ModelInfo(
+                id=model_id,
+                name=item.get("name", model_id),
+                provider=item.get("provider", ""),
+                prompt_price_per_million=prompt_price,
+                completion_price_per_million=completion_price,
+                context_length=architecture.get("context_length"),
+            )
+        )
+
+    return models
+
+
+def _fetch_ollama_models(config: Config) -> List[OllamaModelInfo]:
+    """Fetch available models from the configured Ollama server."""
+    ollama_cfg = config.ollama_config
+    base_url = ollama_cfg.get("base_url", "http://masterroshi:11434").rstrip("/")
+
+    url = f"{base_url}/api/tags"
+    try:
+        resp = requests.get(url, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch models from Ollama at {base_url}: {e}",
+        )
+
+    configured_allowed = config.ollama_allowed_models
+    has_allowlist = bool(configured_allowed)
+    allowed_set = set(configured_allowed) if has_allowlist else set()
+    default_model_id = ollama_cfg.get("model")
+    if default_model_id:
+        allowed_set.add(default_model_id)
+
+    models: List[OllamaModelInfo] = []
+    for item in (data.get("models") or []):
+        name = item.get("name")
+        model = item.get("model", name)
+        if not name:
+            continue
+        if has_allowlist and model not in allowed_set and name not in allowed_set:
+            continue
+        models.append(OllamaModelInfo(name=name, model=model))
+
+    return models
+
+
+@app.get("/api/models", response_model=List[ModelInfo])
+async def get_models():
+    """
+    Return a list of supported models with current OpenRouter pricing.
+
+    Only returns models when the configured provider is OpenRouter; for other
+    providers, an empty list is returned.
+    """
+    try:
+        config = _config or Config(os.getenv("CONFIG_PATH", "config.yaml"))
+        if config.llm_provider != "openrouter":
+            # Model selection is only relevant for OpenRouter for now.
+            return []
+
+        return _fetch_openrouter_models(config)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting models: {str(e)}")
+
+
+@app.get("/api/ollama/models", response_model=List[OllamaModelInfo])
+async def get_ollama_models():
+    """Return available models from the configured Ollama server."""
+    try:
+        config = _config or Config(os.getenv("CONFIG_PATH", "config.yaml"))
+        if config.llm_provider != "ollama":
+            return []
+        return _fetch_ollama_models(config)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting Ollama models: {str(e)}")
 
 
 # Mount static files

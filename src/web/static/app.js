@@ -12,9 +12,17 @@ class WikipediaAgentUI {
             providerInfo: document.getElementById('provider-info'),
             streamCheckbox: document.getElementById('stream-checkbox'),
             outputFormatRadios: document.getElementsByName('output-format'),
+            providerSelect: document.getElementById('provider-select'),
+            modelSelect: document.getElementById('model-select'),
         };
 
         this.isProcessing = false;
+        this.currentProvider = null;
+        this.currentModel = null;
+        this.defaultModels = {
+            openrouter: null,
+            ollama: null,
+        };
         this.init();
     }
 
@@ -27,6 +35,13 @@ class WikipediaAgentUI {
                 this.handleSubmit();
             }
         });
+
+        // Provider change handler
+        if (this.elements.providerSelect) {
+            this.elements.providerSelect.addEventListener('change', () => {
+                this.handleProviderChange(this.elements.providerSelect.value);
+            });
+        }
 
         // Add click handlers for example questions
         document.querySelectorAll('.examples li').forEach(li => {
@@ -48,6 +63,18 @@ class WikipediaAgentUI {
             if (data.ready) {
                 this.updateStatus('ready', `Ready (${data.provider})`);
                 this.elements.providerInfo.textContent = `${data.provider} • ${data.model}`;
+                this.currentProvider = data.provider;
+                this.currentModel = data.model;
+                this.defaultModels.openrouter = data.default_openrouter_model;
+                this.defaultModels.ollama = data.default_ollama_model;
+
+                // Initialize provider dropdown to current provider
+                if (this.elements.providerSelect) {
+                    this.elements.providerSelect.value = data.provider;
+                }
+
+                // Load models for current provider
+                this.handleProviderChange(data.provider);
             } else {
                 this.updateStatus('error', 'Not Ready');
                 this.elements.providerInfo.textContent = 'Configuration Error';
@@ -57,6 +84,92 @@ class WikipediaAgentUI {
             this.elements.providerInfo.textContent = 'Unable to connect';
             console.error('Health check failed:', error);
         }
+    }
+
+    async loadModels() {
+        if (!this.elements.modelSelect) return;
+
+        try {
+            const response = await fetch('/api/models');
+            if (!response.ok) {
+                console.warn('Failed to load models:', response.status);
+                return;
+            }
+
+            const models = await response.json();
+
+            this.updateDefaultModelLabel(this.currentProvider);
+
+            // Clear existing dynamic options (keep the default first option)
+            this.elements.modelSelect.length = 1;
+
+            models.forEach(model => {
+                const option = document.createElement('option');
+                const promptPrice = model.prompt_price_per_million;
+                const completionPrice = model.completion_price_per_million;
+                option.value = model.id;
+                option.textContent = `${model.name} ($${promptPrice.toFixed(2)}/M in, $${completionPrice.toFixed(2)}/M out)`;
+                this.elements.modelSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading models:', error);
+        }
+    }
+
+    async loadOllamaModels() {
+        if (!this.elements.modelSelect) return;
+
+        try {
+            const response = await fetch('/api/ollama/models');
+            if (!response.ok) {
+                console.warn('Failed to load Ollama models:', response.status);
+                return;
+            }
+
+            const models = await response.json();
+
+            this.updateDefaultModelLabel(this.currentProvider);
+
+            // Clear existing dynamic options (keep the default first option)
+            this.elements.modelSelect.length = 1;
+
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.model || model.name;
+                option.textContent = model.name;
+                this.elements.modelSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading Ollama models:', error);
+        }
+    }
+
+    handleProviderChange(provider) {
+        this.currentProvider = provider;
+
+        // Reset model selection to default
+        if (this.elements.modelSelect) {
+            this.elements.modelSelect.value = '';
+        }
+
+        this.updateDefaultModelLabel(provider);
+
+        if (provider === 'openrouter') {
+            this.loadModels();
+        } else if (provider === 'ollama') {
+            this.loadOllamaModels();
+        }
+    }
+
+    updateDefaultModelLabel(provider) {
+        if (!this.elements.modelSelect || this.elements.modelSelect.options.length === 0) {
+            return;
+        }
+
+        const defaultName = this.defaultModels[provider];
+        this.elements.modelSelect.options[0].textContent = defaultName
+            ? `Default (${defaultName})`
+            : 'Default (from config.yaml)';
     }
 
     updateStatus(status, text) {
@@ -90,12 +203,13 @@ class WikipediaAgentUI {
 
         const stream = this.elements.streamCheckbox.checked;
         const outputFormat = this.getSelectedOutputFormat();
+        const selectedModel = this.elements.modelSelect ? this.elements.modelSelect.value : '';
 
         try {
             if (stream) {
-                await this.handleStreamingQuery(query, outputFormat);
+                await this.handleStreamingQuery(query, outputFormat, selectedModel);
             } else {
-                await this.handleNonStreamingQuery(query, outputFormat);
+                await this.handleNonStreamingQuery(query, outputFormat, selectedModel);
             }
         } catch (error) {
             this.showError(error.message);
@@ -105,7 +219,7 @@ class WikipediaAgentUI {
         }
     }
 
-    async handleStreamingQuery(query, outputFormat) {
+    async handleStreamingQuery(query, outputFormat, selectedModel) {
         this.clearResponse();
         this.updateStatus('processing', 'Streaming...');
 
@@ -123,6 +237,9 @@ class WikipediaAgentUI {
                     query: query,
                     stream: true,
                     output_format: outputFormat,
+                    provider: this.currentProvider,
+                    // Only send model when using a provider that supports selection
+                    model: selectedModel || null,
                 }),
             });
 
@@ -188,7 +305,7 @@ class WikipediaAgentUI {
         }
     }
 
-    async handleNonStreamingQuery(query, outputFormat) {
+    async handleNonStreamingQuery(query, outputFormat, selectedModel) {
         this.clearResponse();
         this.updateStatus('processing', 'Processing...');
 
@@ -202,6 +319,9 @@ class WikipediaAgentUI {
                     query: query,
                     stream: false,
                     output_format: outputFormat,
+                    provider: this.currentProvider,
+                    // Only send model when using a provider that supports selection
+                    model: selectedModel || null,
                 }),
             });
 

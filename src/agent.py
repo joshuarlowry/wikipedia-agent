@@ -1,15 +1,23 @@
 """Wikipedia research agent using Strands framework."""
 
+import json
 import os
-from typing import Iterator, Optional, Callable
+from typing import Iterator, Optional, Callable, Union
+
 from strands import Agent
-from strands.models.ollama import OllamaModel
 from strands.models.litellm import LiteLLMModel
+from strands.models.ollama import OllamaModel
+from strands.types.exceptions import StructuredOutputException
 
 from .config import Config
-from .prompts import PromptManager
-from .wikipedia.tools import wikipedia_tools, wikipedia_tools_json, set_fact_accumulator
 from .fact_accumulator import FactAccumulator
+from .fact_models import FactOutput
+from .prompts import PromptManager
+from .wikipedia.tools import (
+    set_fact_accumulator,
+    wikipedia_tools,
+    wikipedia_tools_json,
+)
 
 
 def create_model_from_config(config: Config):
@@ -19,7 +27,7 @@ def create_model_from_config(config: Config):
     if provider_name == "ollama":
         ollama_config = config.ollama_config
         return OllamaModel(
-            host=ollama_config.get("base_url", "http://localhost:11434"),
+            host=ollama_config.get("base_url", "http://masterroshi:11434"),
             model_id=ollama_config.get("model", "llama3.1"),
             temperature=ollama_config.get("temperature", 0.7),
         )
@@ -73,7 +81,7 @@ class WikipediaAgent:
         if self.status_callback:
             self.status_callback(message)
 
-    def query(self, question: str, stream: bool = False) -> str | Iterator[str]:
+    def query(self, question: str, stream: bool = False) -> Union[str, Iterator[str]]:
         """
         Main entry point: search Wikipedia and generate a response.
 
@@ -165,22 +173,53 @@ Instructions:
         )
 
         self._emit_status("🚀 Starting research process...")
+
+        # For JSON mode, request structured output matching FactOutput
+        if self.output_format == "json":
+            try:
+                result = agent_with_callback(
+                    prompt,
+                    structured_output_model=FactOutput,
+                )
+                self._emit_status("✅ Research complete!")
+
+                # Return JSON string to preserve existing public contract
+                if result.structured_output is not None:
+                    return json.dumps(result.structured_output.model_dump(), indent=2)
+
+                # Fallback: if for some reason no structured_output, fall back to accumulator
+                if self.fact_accumulator:
+                    return self.fact_accumulator.to_json()
+
+                # Final fallback: stringify raw result
+                if hasattr(result, "output"):
+                    return str(result.output)
+                return str(result)
+            except StructuredOutputException as exc:
+                # Surface a clear error while keeping response JSON-serializable
+                self._emit_status("⚠️ Failed to validate structured JSON output.")
+                error_payload = {
+                    "query": question,
+                    "sources": [],
+                    "facts": [],
+                    "summary": (
+                        "Failed to produce structured JSON output: "
+                        f"{getattr(exc, 'message', str(exc))}"
+                    ),
+                }
+                return json.dumps(error_payload, indent=2)
+
+        # Non-JSON (MLA) mode: standard Strands text behavior
         result = agent_with_callback(prompt)
         self._emit_status("✅ Research complete!")
 
-        # For JSON mode, return the accumulated facts as JSON
-        if self.output_format == "json" and self.fact_accumulator:
-            return self.fact_accumulator.to_json()
-
-        # For MLA mode, extract the response text from Strands result
         # Strands returns an AgentResult object with various attributes
-        if hasattr(result, 'output'):
+        if hasattr(result, "output"):
             # The output attribute contains the final response
             return result.output
-        elif hasattr(result, 'content'):
+        if hasattr(result, "content"):
             return result.content
-        else:
-            return str(result)
+        return str(result)
 
     def _stream_query(self, prompt: str) -> Iterator[str]:
         """Execute query with streaming."""
@@ -227,14 +266,42 @@ Instructions:
             )
 
             self._emit_status("🚀 Starting research process...")
-            
+
             # Execute the query
             result = streaming_agent(prompt)
 
-            # For JSON mode, yield the accumulated facts as JSON
-            if self.output_format == "json" and self.fact_accumulator:
-                json_output = self.fact_accumulator.to_json()
-                yield json_output
+            if self.output_format == "json":
+                # In JSON mode we don't truly stream structured output yet;
+                # yield the final JSON document once it's ready.
+                try:
+                    structured_result = streaming_agent(
+                        prompt,
+                        structured_output_model=FactOutput,
+                    )
+                    if structured_result.structured_output is not None:
+                        json_output = json.dumps(
+                            structured_result.structured_output.model_dump(),
+                            indent=2,
+                        )
+                        yield json_output
+                    else:
+                        # Fallback to accumulator-based JSON if available
+                        if self.fact_accumulator:
+                            yield self.fact_accumulator.to_json()
+                        else:
+                            yield str(result)
+                except StructuredOutputException as exc:
+                    self._emit_status("⚠️ Failed to validate structured JSON output.")
+                    error_payload = {
+                        "query": prompt,
+                        "sources": [],
+                        "facts": [],
+                        "summary": (
+                            "Failed to produce structured JSON output: "
+                            f"{getattr(exc, 'message', str(exc))}"
+                        ),
+                    }
+                    yield json.dumps(error_payload, indent=2)
             else:
                 # For MLA mode, yield accumulated text if we got any
                 if accumulated_text:
@@ -242,13 +309,13 @@ Instructions:
                         yield chunk
                 else:
                     # Fallback: if streaming didn't capture chunks, use the result directly
-                    if hasattr(result, 'output'):
+                    if hasattr(result, "output"):
                         yield result.output
-                    elif hasattr(result, 'content'):
+                    elif hasattr(result, "content"):
                         yield result.content
                     else:
                         yield str(result)
-            
+
             self._emit_status("✅ Research complete!")
 
         except Exception as e:

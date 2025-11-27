@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.6
+
 # Wikipedia Research Agent - Docker Image
 # Multi-stage build for optimal size
 
@@ -14,11 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy dependency files and README (needed for package build)
 COPY pyproject.toml uv.lock* README.md ./
 
-# Install uv for faster dependency management
-RUN pip install --no-cache-dir uv
+# Install uv for faster dependency management (use BuildKit cache for pip)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install uv
 
-# Install dependencies
-RUN uv pip install --system --no-cache -e .
+# Install dependencies (use BuildKit cache so repeated builds are much faster)
+RUN --mount=type=cache,target=/root/.cache \
+    uv pip install --system -e .
 
 # Production stage
 FROM python:3.11-slim

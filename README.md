@@ -45,15 +45,23 @@ llm:
   provider: "ollama"  # or "openrouter"
 
   ollama:
-    base_url: "http://localhost:11434"
+    base_url: "http://masterroshi:11434"
     model: "llama3.2"
     temperature: 0.7
+    # Optional allowlist—only these models will appear in the UI (default: all).
+    allowed_models:
+      - "llama3.2"
+      - "llama3.1"
 
   openrouter:
     base_url: "https://openrouter.ai/api/v1"
     api_key_env: "OPENROUTER_API_KEY"
     model: "anthropic/claude-3.5-sonnet"
     temperature: 0.7
+    # Optional allowlist—only these OpenRouter models will show up and be selectable.
+    allowed_models:
+      - "anthropic/claude-3.5-sonnet"
+      - "anthropic/claude-3.5-haiku"
 
 wikipedia:
   language: "en"
@@ -91,13 +99,13 @@ Works Cited
 #### JSON Format
 Returns structured data with sources and facts, ideal for programmatic use.
 
-**How It Works:** JSON mode uses a **tool-based fact accumulation approach**:
+**How It Works:** JSON mode combines a **tool-based fact accumulation approach** with **Strands Structured Output**:
 1. LLM reads Wikipedia articles naturally
-2. As it discovers information, it calls the `record_fact()` tool for each insight
-3. Facts are accumulated in a `FactAccumulator` object
-4. System generates perfect JSON programmatically
+2. As it discovers information, it calls the `record_fact()` tool for each insight, which is stored in a `FactAccumulator`
+3. The Strands agent is invoked with a `FactOutput` Pydantic model via `structured_output_model`
+4. The final response is a validated, type-safe JSON object that matches the documented schema
 
-This approach guarantees valid JSON, separates concerns (LLM focuses on understanding, system handles formatting), and enables real-time tracking of fact extraction.
+This approach guarantees valid JSON, separates concerns (LLM focuses on understanding, system + Strands handle formatting and validation), and still enables real-time tracking of fact extraction.
 
 ```yaml
 agent:
@@ -161,6 +169,7 @@ The web service provides:
 - 🔌 **REST API** with streaming support
 - 📊 **API documentation** at `/docs`
 - 🐳 **Docker support** for easy deployment
+- 🛠️ **Provider + model selector** in the web UI (choose Ollama or OpenRouter and pick from the configured allowlist)
 
 See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for complete Docker deployment guide.
 

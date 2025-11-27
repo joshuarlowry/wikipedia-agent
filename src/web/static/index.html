@@ -45,6 +45,21 @@
                                 Stream Response
                             </label>
                         </div>
+                        <div class="control-group">
+                            <label for="provider-select">
+                                Provider:
+                                <select id="provider-select">
+                                    <option value="ollama">Ollama</option>
+                                    <option value="openrouter">OpenRouter</option>
+                                </select>
+                            </label>
+                            <label for="model-select">
+                                Model:
+                                <select id="model-select">
+                                    <option value="">Default (from config.yaml)</option>
+                                </select>
+                            </label>
+                        </div>
                         <button id="submit-btn" class="btn-primary">
                             <span class="btn-text">Ask Question</span>
                             <span class="btn-loading" style="display: none;">

@@ -1,11 +1,15 @@
 # JSON Output Mode Feature
 
+> **Note:** The implementation has evolved to use **Strands Structured Output models** for the final JSON response.  
+> The tool-based fact accumulation (`record_fact` + `FactAccumulator`) is still used as an internal aid for extraction,  
+> but the JSON that callers receive is now produced via a `FactOutput` Pydantic model passed as `structured_output_model`.
+
 ## Overview
 
 The Wikipedia Agent now supports two output formats:
 
 1. **MLA Mode** (default): Returns narrative responses with proper MLA 9th edition citations
-2. **JSON Mode** (new): Returns structured data with sources, facts, and references using a tool-based fact accumulation approach
+2. **JSON Mode** (new): Returns structured data with sources, facts, and references using a tool-based fact accumulation approach and Strands structured output
 
 ## Architecture: Tool-Based Fact Accumulation
 

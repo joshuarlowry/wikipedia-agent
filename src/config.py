@@ -55,6 +55,16 @@ class Config:
         return config
 
     @property
+    def openrouter_allowed_models(self) -> list[str]:
+        """Get the configured allowlist for OpenRouter models."""
+        return self.get("llm.openrouter.allowed_models", [])
+
+    @property
+    def ollama_allowed_models(self) -> list[str]:
+        """Get the configured allowlist for Ollama models."""
+        return self.get("llm.ollama.allowed_models", [])
+
+    @property
     def wikipedia_config(self) -> Dict[str, Any]:
         """Get Wikipedia configuration."""
         return self.get("wikipedia", {})

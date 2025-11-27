@@ -1,4 +1,8 @@
-# Tool-Based JSON Mode Redesign
+# Tool-Based JSON Mode Redesign (Legacy Notes)
+
+> **Status:** This document describes the original **tool-based JSON mode** implementation.  
+> The current system combines this approach with **Strands Structured Output** using a `FactOutput` Pydantic model  
+> for the final JSON response, while `record_fact` and `FactAccumulator` continue to support extraction internally.
 
 ## Summary
 
