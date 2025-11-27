@@ -10,11 +10,9 @@ from strands.models.ollama import OllamaModel
 from strands.types.exceptions import StructuredOutputException
 
 from .config import Config
-from .fact_accumulator import FactAccumulator
 from .fact_models import FactOutput
 from .prompts import PromptManager
 from .wikipedia.tools import (
-    set_fact_accumulator,
     wikipedia_tools,
     wikipedia_tools_json,
 )
@@ -58,7 +56,6 @@ class WikipediaAgent:
         self.prompt_manager = PromptManager()
         self.output_format = self.config.output_format
         self.status_callback = None
-        self.fact_accumulator = None
 
         # Create Strands model
         self.model = create_model_from_config(self.config)
@@ -96,11 +93,6 @@ class WikipediaAgent:
         system_prompt = self.prompt_manager.get_system_prompt(mode=self.output_format)
 
         if self.output_format == "json":
-            # Initialize fact accumulator for JSON mode
-            self.fact_accumulator = FactAccumulator(query=question)
-            set_fact_accumulator(self.fact_accumulator)
-            
-            # JSON mode instructions
             full_prompt = f"""{system_prompt}
 
 User Question: {question}
@@ -108,15 +100,12 @@ User Question: {question}
 Instructions:
 1. Use the search_and_retrieve_articles_json tool to find relevant Wikipedia articles for this question
 2. Read through the articles carefully
-3. As you discover important information, use the record_fact() tool to save each fact
-4. For each fact, specify:
-   - The fact itself (be specific and precise)
-   - The source_ids that support it (provided in the article headers)
-   - The category (definition, history, application, technical, or other)
-5. Extract as many relevant facts as you can find
-6. When you're done extracting facts, simply indicate you've finished
+3. As you discover important information, extract it using the structured FactOutput contract
+4. For each fact, provide source_ids and categorize it correctly
+5. Aim for thoroughness and mention all extracted sources
+6. When you're done, emit a complete JSON document that matches the FactOutput schema
 
-Remember: Use record_fact() for EACH piece of information you want to save.
+Remember: Your final response must be valid JSON that matches the FactOutput model.
 """
         else:
             # MLA mode instructions
@@ -138,9 +127,6 @@ Instructions:
 
     def _sync_query(self, prompt: str) -> str:
         """Execute query synchronously."""
-        # Track fact recording for status updates
-        fact_count = [0]  # Use list to allow modification in closure
-        
         # Create agent with callback to intercept tool calls
         def callback_handler(**kwargs):
             # Detect tool calls
@@ -152,9 +138,6 @@ Instructions:
                     self._emit_status("📥 Retrieving article content...")
                 elif "citation" in tool_name.lower():
                     self._emit_status("📝 Formatting citations...")
-                elif "record_fact" in tool_name.lower():
-                    fact_count[0] += 1
-                    self._emit_status(f"💾 Recording facts... ({fact_count[0]} recorded)")
             # Detect when LLM starts generating
             if "data" in kwargs and kwargs.get("event") == "start":
                 if self.output_format == "json":
@@ -176,38 +159,17 @@ Instructions:
 
         # For JSON mode, request structured output matching FactOutput
         if self.output_format == "json":
-            try:
-                result = agent_with_callback(
-                    prompt,
-                    structured_output_model=FactOutput,
-                )
-                self._emit_status("✅ Research complete!")
+            result = agent_with_callback(
+                prompt,
+                structured_output_model=FactOutput,
+            )
+            self._emit_status("✅ Research complete!")
 
-                # Return JSON string to preserve existing public contract
-                if result.structured_output is not None:
-                    return json.dumps(result.structured_output.model_dump(), indent=2)
-
-                # Fallback: if for some reason no structured_output, fall back to accumulator
-                if self.fact_accumulator:
-                    return self.fact_accumulator.to_json()
-
-                # Final fallback: stringify raw result
-                if hasattr(result, "output"):
-                    return str(result.output)
-                return str(result)
-            except StructuredOutputException as exc:
-                # Surface a clear error while keeping response JSON-serializable
+            if result.structured_output is None:
                 self._emit_status("⚠️ Failed to validate structured JSON output.")
-                error_payload = {
-                    "query": question,
-                    "sources": [],
-                    "facts": [],
-                    "summary": (
-                        "Failed to produce structured JSON output: "
-                        f"{getattr(exc, 'message', str(exc))}"
-                    ),
-                }
-                return json.dumps(error_payload, indent=2)
+                raise StructuredOutputException("LLM did not return structured FactOutput data.")
+
+            return json.dumps(result.structured_output.model_dump(), indent=2)
 
         # Non-JSON (MLA) mode: standard Strands text behavior
         result = agent_with_callback(prompt)
@@ -224,15 +186,12 @@ Instructions:
     def _stream_query(self, prompt: str) -> Iterator[str]:
         """Execute query with streaming."""
         try:
-            # Use Strands streaming with callback
             accumulated_text = []
             generation_started = False
-            fact_count = [0]  # Use list to allow modification in closure
 
             def callback_handler(**kwargs):
                 nonlocal generation_started
-                
-                # Detect tool calls
+
                 if "tool_name" in kwargs:
                     tool_name = kwargs["tool_name"]
                     if "search" in tool_name.lower():
@@ -241,11 +200,7 @@ Instructions:
                         self._emit_status("📥 Retrieving article content...")
                     elif "citation" in tool_name.lower():
                         self._emit_status("📝 Formatting citations...")
-                    elif "record_fact" in tool_name.lower():
-                        fact_count[0] += 1
-                        self._emit_status(f"💾 Recording facts... ({fact_count[0]} recorded)")
-                
-                # Detect when LLM starts generating and collect text
+
                 if "data" in kwargs:
                     if not generation_started:
                         if self.output_format == "json":
@@ -255,10 +210,8 @@ Instructions:
                         generation_started = True
                     accumulated_text.append(kwargs["data"])
 
-            # Select tools based on output format
             tools = wikipedia_tools_json if self.output_format == "json" else wikipedia_tools
 
-            # Create an agent with callback
             streaming_agent = Agent(
                 model=self.model,
                 tools=tools,
@@ -267,54 +220,33 @@ Instructions:
 
             self._emit_status("🚀 Starting research process...")
 
-            # Execute the query
+            if self.output_format == "json":
+                result = streaming_agent(
+                    prompt,
+                    structured_output_model=FactOutput,
+                )
+
+                if result.structured_output is None:
+                    self._emit_status("⚠️ Failed to validate structured JSON output.")
+                    raise StructuredOutputException("LLM did not return structured FactOutput data.")
+
+                json_output = json.dumps(result.structured_output.model_dump(), indent=2)
+                self._emit_status("✅ Research complete!")
+                yield json_output
+                return
+
             result = streaming_agent(prompt)
 
-            if self.output_format == "json":
-                # In JSON mode we don't truly stream structured output yet;
-                # yield the final JSON document once it's ready.
-                try:
-                    structured_result = streaming_agent(
-                        prompt,
-                        structured_output_model=FactOutput,
-                    )
-                    if structured_result.structured_output is not None:
-                        json_output = json.dumps(
-                            structured_result.structured_output.model_dump(),
-                            indent=2,
-                        )
-                        yield json_output
-                    else:
-                        # Fallback to accumulator-based JSON if available
-                        if self.fact_accumulator:
-                            yield self.fact_accumulator.to_json()
-                        else:
-                            yield str(result)
-                except StructuredOutputException as exc:
-                    self._emit_status("⚠️ Failed to validate structured JSON output.")
-                    error_payload = {
-                        "query": prompt,
-                        "sources": [],
-                        "facts": [],
-                        "summary": (
-                            "Failed to produce structured JSON output: "
-                            f"{getattr(exc, 'message', str(exc))}"
-                        ),
-                    }
-                    yield json.dumps(error_payload, indent=2)
+            if accumulated_text:
+                for chunk in accumulated_text:
+                    yield chunk
             else:
-                # For MLA mode, yield accumulated text if we got any
-                if accumulated_text:
-                    for chunk in accumulated_text:
-                        yield chunk
+                if hasattr(result, "output"):
+                    yield result.output
+                elif hasattr(result, "content"):
+                    yield result.content
                 else:
-                    # Fallback: if streaming didn't capture chunks, use the result directly
-                    if hasattr(result, "output"):
-                        yield result.output
-                    elif hasattr(result, "content"):
-                        yield result.content
-                    else:
-                        yield str(result)
+                    yield str(result)
 
             self._emit_status("✅ Research complete!")
 

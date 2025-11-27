@@ -8,8 +8,8 @@ from src.config import Config
 
 
 def test_json_mode():
-    """Test that JSON mode returns valid structured data using fact accumulation."""
-    print("Testing JSON mode with fact accumulation...")
+    """Test that JSON mode returns valid structured data using structured output."""
+    print("Testing JSON mode with structured FactOutput...")
     
     # Create config with JSON output
     config = Config("config.yaml")
@@ -25,7 +25,7 @@ def test_json_mode():
     # Test query
     question = "What is Python programming language?"
     print(f"\nQuerying: {question}")
-    print("(The LLM will use record_fact() tool to extract facts)")
+    print("(The LLM will produce structured FactOutput JSON)")
     
     try:
         response = agent.query(question, stream=False)
@@ -58,7 +58,7 @@ def test_json_mode():
         # Check that facts were actually extracted
         if len(data['facts']) == 0:
             print("⚠ Warning: No facts were extracted")
-            print("This might indicate the LLM didn't use the record_fact() tool")
+            print("This might indicate the LLM failed to populate the structured FactOutput")
             return False
         
         # Check fact structure

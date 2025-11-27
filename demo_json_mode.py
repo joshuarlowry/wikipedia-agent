@@ -24,7 +24,7 @@ def demo_mla_mode():
 
 
 def demo_json_mode():
-    """Demo the JSON structured output mode with fact accumulation."""
+    """Demo the JSON structured output mode."""
     print("=" * 80)
     print("JSON MODE DEMO (Tool-Based Fact Accumulation)")
     print("=" * 80)
@@ -39,8 +39,8 @@ def demo_json_mode():
     print("The LLM will:")
     print("1. Search for Wikipedia articles")
     print("2. Read through the content")
-    print("3. Use record_fact() tool to extract important information")
-    print("4. System will generate JSON from accumulated facts\n")
+    print("3. Produce a structured JSON document matching FactOutput")
+    print("4. The agent validates the JSON before returning it\n")
     
     response = agent.query(question, stream=False)
     
@@ -90,10 +90,10 @@ if __name__ == "__main__":
     print("Wikipedia Agent - Output Format Comparison")
     print("=" * 80)
     print("\nThis demo shows the difference between MLA and JSON output modes.")
-    print("\nJSON mode now uses a tool-based fact accumulation approach:")
-    print("- The LLM reads articles and calls record_fact() for each insight")
-    print("- Facts are accumulated as they're discovered")
-    print("- System generates perfect JSON programmatically")
+    print("\nJSON mode now uses Strands' structured FactOutput contract:")
+    print("- The LLM reads articles and emits the required fields")
+    print("- The agent enforces FactOutput via structured_output_model")
+    print("- The response is validated JSON with sources, facts, and summary")
     print("\nMake sure you have configured your LLM provider in config.yaml\n")
     
     try:

@@ -26,21 +26,20 @@ system_prompt: |
 
 system_prompt_json: |
   You are a knowledgeable research assistant. Your task is to read Wikipedia
-  articles and extract important facts using the record_fact() tool.
+  articles and produce a validated JSON document that matches the FactOutput schema.
 
   CRITICAL REQUIREMENTS:
   1. Base your extractions ONLY on the provided Wikipedia content
-  2. Extract specific facts and information from the sources
-  3. For EACH fact, use the record_fact() tool to save it
-  4. Link each fact to the source(s) it came from using source_ids
-  5. Do not make up information not present in the provided sources
+  2. Each fact must be tied to the source(s) that support it
+  3. Output JSON must include `query`, `sources`, `facts`, and optionally `summary`
+  4. Do not invent facts or sources; only use information from the provided articles
 
   WORKFLOW:
   1. First, search for and retrieve Wikipedia articles using search_and_retrieve_articles_json
-  2. Read through each article carefully
-  3. As you discover important information, immediately use record_fact() to save it
-  4. Continue extracting all relevant facts from all sources
-  5. When finished, simply say "Fact extraction complete"
+  2. Read through each article carefully, paying attention to the provided SOURCE IDs
+  3. Extract atomic facts and include their `source_id` references in the structured JSON
+  4. Once you have gathered all relevant information, emit the JSON document that matches FactOutput
+  5. Do not append any extra narrative outside of the structured document
 
   FACT EXTRACTION GUIDELINES:
   - Each fact should be atomic and self-contained
@@ -51,24 +50,7 @@ system_prompt_json: |
     * "application" - Practical uses, real-world applications
     * "technical" - Technical details, specifications, mechanisms
     * "other" - Any other relevant information
-  - Link each fact to its source(s) using the source_ids from the article headers
-  - Facts should be direct information from the sources, not inferences
-  - Extract multiple facts per article - aim for thoroughness
-
-  EXAMPLE:
-  After reading an article with "SOURCE ID: source_1", you might use:
-  
-  record_fact(
-    fact="Quantum computing uses quantum bits (qubits) that can exist in superposition, allowing them to represent both 0 and 1 simultaneously.",
-    source_ids=["source_1"],
-    category="definition"
-  )
-  
-  record_fact(
-    fact="The concept of quantum computing was first proposed by physicist Richard Feynman in 1982.",
-    source_ids=["source_1"],
-    category="history"
-  )
+  - Link each fact to its source(s) using the provided SOURCE IDs
 
 user_template: |
   Question: {question}

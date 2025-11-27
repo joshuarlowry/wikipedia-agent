@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class SourceModel(BaseModel):
-    """Metadata about a source article (mirrors Source in fact_accumulator)."""
+    """Metadata about a source article used in structured output."""
 
     id: str = Field(..., description="Stable identifier for the source (e.g. source_1)")
     title: str
@@ -16,7 +16,7 @@ class SourceModel(BaseModel):
 
 
 class FactModel(BaseModel):
-    """A single fact extracted from sources (mirrors Fact in fact_accumulator)."""
+    """A single fact extracted from sources, used in structured output."""
 
     fact: str
     source_ids: List[str]
@@ -27,8 +27,7 @@ class FactOutput(BaseModel):
     """
     Final structured output for JSON mode.
 
-    This is intentionally aligned with FactAccumulator.to_json() so that
-    external JSON shape remains compatible:
+    The JSON must include:
 
     {
         "query": str,

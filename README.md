@@ -99,13 +99,13 @@ Works Cited
 #### JSON Format
 Returns structured data with sources and facts, ideal for programmatic use.
 
-**How It Works:** JSON mode combines a **tool-based fact accumulation approach** with **Strands Structured Output**:
-1. LLM reads Wikipedia articles naturally
-2. As it discovers information, it calls the `record_fact()` tool for each insight, which is stored in a `FactAccumulator`
-3. The Strands agent is invoked with a `FactOutput` Pydantic model via `structured_output_model`
-4. The final response is a validated, type-safe JSON object that matches the documented schema
+**How It Works:** JSON mode now uses **Strands Structured Output** directly with the `FactOutput` model:
+1. LLM reads the retrieved Wikipedia articles and constructs a JSON document that matches `FactOutput`
+2. Each fact includes the supporting sources and a predefined category (definition, history, application, technical, other)
+3. The agent validates the structured output, ensuring every response conforms to the documented schema
+4. The final response is a guaranteed, type-safe JSON object ready for programmatic consumption
 
-This approach guarantees valid JSON, separates concerns (LLM focuses on understanding, system + Strands handle formatting and validation), and still enables real-time tracking of fact extraction.
+This approach keeps the LLM focused on signal extraction while Strands handles formatting, validation, and error reporting.
 
 ```yaml
 agent:
